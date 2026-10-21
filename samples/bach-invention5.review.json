@@ -1,0 +1,22 @@
+{
+  "sourceSha256": "9ab9a9a8ebf609d60a7d0cddcccd5ffc91d433812fd86153244595371d282805",
+  "scope": "Assistant visual transcription of the first measure only; not full-page human ground truth",
+  "coordinateSpace": "source-image-top-left-pixels",
+  "notes": [
+    {"center": [482, 450], "step": "E", "alter": -1, "octave": 4},
+    {"center": [531, 459], "step": "D", "alter": 0, "octave": 4},
+    {"center": [581, 451], "step": "E", "alter": -1, "octave": 4},
+    {"center": [657, 443], "step": "F", "alter": 0, "octave": 4},
+    {"center": [734, 435], "step": "G", "alter": 0, "octave": 4},
+    {"center": [923, 425], "step": "A", "alter": -1, "octave": 4},
+    {"center": [410, 552], "step": "E", "alter": -1, "octave": 3},
+    {"center": [581, 613], "step": "E", "alter": -1, "octave": 2},
+    {"center": [781, 494], "step": "E", "alter": -1, "octave": 4},
+    {"center": [830, 503], "step": "D", "alter": 0, "octave": 4},
+    {"center": [880, 494], "step": "E", "alter": -1, "octave": 4},
+    {"center": [923, 510], "step": "C", "alter": 0, "octave": 4},
+    {"center": [972, 502], "step": "D", "alter": 0, "octave": 4},
+    {"center": [1015, 519], "step": "B", "alter": -1, "octave": 3},
+    {"center": [1064, 509], "step": "C", "alter": 0, "octave": 4}
+  ]
+}

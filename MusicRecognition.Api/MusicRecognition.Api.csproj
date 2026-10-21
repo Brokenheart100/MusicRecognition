@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="../MusicRecognition.Infrastructure/MusicRecognition.Infrastructure.csproj" />
+    <ProjectReference Include="../MusicRecognition.ServiceDefaults/MusicRecognition.ServiceDefaults.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.13" />
+  </ItemGroup>
+</Project>

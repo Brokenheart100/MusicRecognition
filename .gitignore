@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+.vs/
+.playwright-cli/
+.tools/
+output/
+tmp/
+**/__pycache__/
+**/node_modules/
+**/.nuxt/
+**/.output/

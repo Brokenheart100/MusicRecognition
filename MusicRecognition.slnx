@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/MusicRecognition.Domain.Tests/MusicRecognition.Domain.Tests.csproj" />
+    <Project Path="tests/MusicRecognition.Infrastructure.Tests/MusicRecognition.Infrastructure.Tests.csproj" />
+  </Folder>
+  <Project Path="MusicRecognition.Api/MusicRecognition.Api.csproj" />
+  <Project Path="MusicRecognition.AppHost/MusicRecognition.AppHost.csproj" />
+  <Project Path="MusicRecognition.Application/MusicRecognition.Application.csproj" />
+  <Project Path="MusicRecognition.Domain/MusicRecognition.Domain.csproj" />
+  <Project Path="MusicRecognition.Infrastructure/MusicRecognition.Infrastructure.csproj" />
+  <Project Path="MusicRecognition.ServiceDefaults/MusicRecognition.ServiceDefaults.csproj" />
+  <Project Path="MusicRecognition.Worker/MusicRecognition.Worker.csproj" />
+</Solution>
