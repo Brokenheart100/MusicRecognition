@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "5bcad796-cf43-4cf4-9177-34f5ffef118f",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "D:\\Code\\CSharp\\MusicRecognition\\.archify\\workflow-recognition-pipeline-20261022-135958\\candidate.json",
+  "output": "D:\\Code\\CSharp\\MusicRecognition\\.archify\\workflow-recognition-pipeline-20261022-135958\\recognition-pipeline.html",
+  "specification": {
+    "sha256": "ff81e60e001d26018cc7742df36693c59e0e785a60230e59871b7ca63d3d06b0",
+    "bytes": 4919
+  },
+  "artifact": {
+    "sha256": "bfa7356550f85ee848b9d4e22d9ae92c087695363511b8736ec42e6a267bec6f",
+    "bytes": 762769
+  }
+}

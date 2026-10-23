@@ -63,7 +63,7 @@ C# 生成 `NumberedLabel(Degree, Alteration, OctaveDots)`。Python 正式适配�
 | GET `/api/scores/{id}/artifacts/annotated.pdf?version=2` | 下载指定 Ready 修订，未完成为 409 |
 | GET `/api/scores/{id}/artifacts/annotations.json?version=2` | 布局 / 坐标 / 待放置标记，含业务 NoteId |
 | GET `/api/scores/{id}/artifacts/metrics.json?version=2` | 几何 / 导出检查结果，不是全页语义准确率 |
-| GET `/health`、`/alive` | 数据库可连接的就绪检查、进程存活检查 |
+| GET `/health`、`/alive` | API 检查数据库；Worker 另检查识谱运行时就绪状态；`/alive` 仅检查进程存活 |
 | GET `/openapi/v1.json` | Development 环境的 OpenAPI；不公开 Hangfire Dashboard |
 
 纠错示例：
@@ -91,9 +91,14 @@ C# 生成 `NumberedLabel(Degree, Alteration, OctaveDots)`。Python 正式适配�
 本次运行环境：Windows，.NET SDK 10.0.402，Docker，Aspire SDK 13.6.2，Audiveris 5.11.0。Python 依赖与工具固定流程见 [P0 复跑](../scripts/poc/README.md)。先完成一次 P0 工具准备，再使用下面的运行时准备；Worker 不会在处理用户文件时下载 JDK / Audiveris。
 
 ```powershell
-# 选择装有 scripts/poc/requirements.txt 的 Python，避免依赖某位开发者的绝对路径。
-$env:MUSICRECOGNITION_PYTHON = 'C:/path/to/python.exe'
-./scripts/runtime/prepare.ps1 -Python $env:MUSICRECOGNITION_PYTHON
+# 创建项目独立环境、安装固定依赖并检查工具。AppHost 默认选择 .tools/poc-python。
+./scripts/runtime/setup.ps1
+# 首次准备 Poppler 时可显式指定便携分发包的 Library 目录；完整 bin / DLL / share 会复制到项目 .tools/poppler。
+# ./scripts/runtime/setup.ps1 -PopplerDirectory C:/tools/poppler/Library
+# 可选实验性光照预处理：./scripts/runtime/setup.ps1 -WithOpenCV
+# 需要其他解释器时，可显式配置 Recognition:Python 或 MUSICRECOGNITION_PYTHON。
+# Worker 默认使用 .tools/poppler/bin/pdftoppm.exe；外部安装可用 Recognition__Pdftoppm 覆盖为绝对路径。
+# Worker 启动先检查 Python 包、Java / 适配器、字体，并真实渲染小 PDF；失败时不启动任务消费。
 dotnet tool restore
 dotnet build MusicRecognition.slnx
 dotnet test tests/MusicRecognition.Domain.Tests

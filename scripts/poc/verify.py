@@ -16,10 +16,10 @@ def main():
     directory = args.output
     annotations = json.loads((directory / "annotations.json").read_text(encoding="utf-8"))
     metrics = json.loads((directory / "metrics.json").read_text(encoding="utf-8"))
-    original = np.asarray(Image.open(directory / "original-render.png").convert("RGB")).astype(int)
-    annotated = np.asarray(Image.open(directory / "annotated-render.png").convert("RGB")).astype(int)
+    original = np.asarray(Image.open(directory / "original-render.png").convert("RGB")).astype(np.int16)
+    annotated = np.asarray(Image.open(directory / "annotated-render.png").convert("RGB")).astype(np.int16)
     height, width = original.shape[:2]
-    geometry = geometry_for(directory / "original.pdf",(annotations["width"],annotations["height"])) if annotations.get("pdfGeometry") else None
+    geometry = geometry_for(directory / "original.pdf",(annotations["width"],annotations["height"]), dpi=annotations["pdfGeometry"]["rasterDpi"]) if annotations.get("pdfGeometry") else None
     expected_size = geometry.display_size if geometry else (annotations["width"],annotations["height"])
     if (width, height) != expected_size or original.shape != annotated.shape:
         raise ValueError("Raster size mismatch")
@@ -69,7 +69,7 @@ def main():
     non_gray_changed = int(np.count_nonzero(changed & (changed_chroma > 1)))
     # Black over colored paper retains some paper chroma on antialiased edge pixels.
     # Its RGB channels must darken by the same factor, rather than become neutral gray.
-    ratios = annotated / np.maximum(original,1)
+    ratios = annotated.astype(np.float32) / np.maximum(original,1)
     bad_black_blends = int(np.count_nonzero(changed & ((np.max(ratios,axis=2)-np.min(ratios,axis=2) > 0.02) | np.any(annotated > original+1,axis=2))))
     black_cores = int(np.count_nonzero(changed & (np.max(annotated,axis=2) < 10)))
     report = {"rasterDimensions": [width,height], "changedPixels": int(changed.sum()),

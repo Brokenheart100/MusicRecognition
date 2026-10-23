@@ -5,6 +5,9 @@ from pathlib import Path
 import subprocess
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "poc"))
+from pdf_geometry import resolve_pdftoppm
+
 parser=argparse.ArgumentParser()
 parser.add_argument("--job",required=True,type=Path)
 parser.add_argument("--version",type=int,default=1)
@@ -21,7 +24,7 @@ for annotation in annotations:
     assert annotation["alteration"]==label["alteration"]
     if "pitch" in label:assert annotation["pitch"]==label["pitch"]
 for name in ("original","annotated"):
-    density=["-r","216"] if data.get("pdfGeometry") else ["-scale-to-x",str(data["width"]),"-scale-to-y",str(data["height"])]
-    subprocess.run(["pdftoppm","-png","-singlefile","-cropbox",*density,str(directory / f"{name}.pdf"),str(directory / f"{name}-render")],check=True)
+    density=["-r",str(data["pdfGeometry"]["rasterDpi"])] if data.get("pdfGeometry") else ["-scale-to-x",str(data["width"]),"-scale-to-y",str(data["height"])]
+    subprocess.run([resolve_pdftoppm(),"-png","-singlefile","-cropbox",*density,str(directory / f"{name}.pdf"),str(directory / f"{name}-render")],check=True)
 subprocess.run([sys.executable,str(Path(__file__).parent / "poc" / "verify.py"),"--output",str(directory)],check=True)
 print("Every exported label matches its authoritative C# label and business NoteId")

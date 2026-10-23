@@ -1,0 +1,8 @@
+{
+  "venvPath": ".",
+  "venv": ".tools/poc-python",
+  "extraPaths": ["scripts/poc"],
+  "pythonVersion": "3.14",
+  "typeCheckingMode": "basic",
+  "exclude": ["output", "tmp", ".tools", ".archify", ".playwright-cli", "**/node_modules", "**/.nuxt"]
+}

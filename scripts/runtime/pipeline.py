@@ -4,7 +4,6 @@ Tools must be provisioned before worker startup; never downloads or installs at 
 Each attempt uses a fresh directory. Only validated output is atomically published.
 """
 import argparse
-from collections import Counter
 import hashlib
 import json
 import math
@@ -23,12 +22,16 @@ parser.add_argument("--job", type=Path, required=True)
 parser.add_argument("--extension", choices=[".pdf", ".jpg", ".png"], required=True)
 parser.add_argument("--version", type=int)
 parser.add_argument("--labels", type=Path)
+parser.add_argument("--style", type=Path)
 parser.add_argument("--font", type=Path)
+parser.add_argument("--preprocess", choices=["none", "adaptive"], default="none")
 args = parser.parse_args()
 sys.path.insert(0, str(args.root / "scripts" / "poc"))
 from PIL import Image
-from pdf_geometry import prepare_pdf, read_page
-from annotate import musicxml_pitches
+from pdf_geometry import prepare_pdf, read_page, PdfInputError
+from pitch_validation import validate_pitches
+from preprocess import prepare as preprocess, PreprocessingUnavailable, IDENTITY
+from octaves import recover as recover_octaves, apply_to_notes, OctaveRecoveryUnavailable
 
 Image.MAX_IMAGE_PIXELS = 20_000_000
 source = args.job / ("source" + args.extension)
@@ -50,12 +53,19 @@ def validate(raw):
         raise PipelineError("unsupported-notation", str(data["unsupported"]))
     if data["sheet"] != 1 or not data["notes"] or len(data["notes"]) != data["headCount"] or len({n["interId"] for n in data["notes"]}) != data["headCount"]:
         raise PipelineError("invalid-note-count", "Incomplete or duplicated note anchors")
-    pitches = Counter((n["step"], n["alter"], n["octave"], n["staffInPart"]) for n in data["notes"])
-    if pitches != musicxml_pitches(raw / "score.mxl"):
-        raise PipelineError("pitch-consistency-failed", "Audiveris heads and MusicXML pitches disagree")
+    try:
+        validate_pitches(data, raw / "score.mxl")
+    except ValueError as error:
+        raise PipelineError("pitch-consistency-failed", str(error)) from error
     with Image.open(raw / "recognition.png") as image:
         if image.size != (data["width"], data["height"]):
             raise PipelineError("geometry-mismatch", "Engine resized the source raster")
+    if (raw / "preprocessing.json").exists():
+        metadata = json.loads((raw / "preprocessing.json").read_text(encoding="utf-8"))
+        if metadata["geometryChanged"] or metadata["sourceToRecognition"] != IDENTITY or metadata["recognitionToSource"] != IDENTITY:
+            raise PipelineError("geometry-mismatch", "Only identity photometric preprocessing is validated")
+        if metadata["sourceSize"] != [data["width"], data["height"]] or metadata["sourceRasterSha256"] != hashlib.sha256((raw / "recognition.png").read_bytes()).hexdigest():
+            raise PipelineError("geometry-mismatch", "Preprocessing metadata no longer matches the original raster")
     return data
 
 try:
@@ -63,14 +73,15 @@ try:
     if args.operation == "recognize":
         if raw.exists():
             validate(raw)
+            manifest = json.loads((raw / "manifest.json").read_text(encoding="utf-8"))
+            if manifest.get("preprocessing", "none") != args.preprocess or manifest["sourceSha256"] != hashlib.sha256(source.read_bytes()).hexdigest():
+                raise PipelineError("recognition-settings-mismatch", "Cannot reuse recognition with a different source or preprocessing mode")
             print("Reusing previously validated recognition for this immutable source")
         else:
             attempt = args.job / ("recognize-" + uuid.uuid4().hex)
             attempt.mkdir()
             if args.extension == ".pdf":
                 _, page = read_page(source)
-                if math.ceil(float(page.cropbox.width)*3) * math.ceil(float(page.cropbox.height)*3) > Image.MAX_IMAGE_PIXELS:
-                    raise PipelineError("image-too-large", "PDF raster exceeds 20 million pixels at 216 DPI")
                 _, geometry = prepare_pdf(source, attempt)
                 (attempt / "pdf-geometry.json").write_text(json.dumps(geometry), encoding="utf-8")
             else:
@@ -78,6 +89,7 @@ try:
                     if image.width * image.height > Image.MAX_IMAGE_PIXELS or getattr(image,"n_frames",1) != 1:
                         raise PipelineError("unsupported-image", "Only one image frame up to 20 million pixels is supported")
                     image.convert("RGB").save(attempt / "recognition.png")
+            preprocess(attempt / "recognition.png", attempt / "engine-input.png", args.preprocess)
             app = args.root / ".tools" / "audiveris" / "Audiveris"
             classes = args.root / ".tools" / "poc-classes"
             compiled = classes / "musicrecognition" / "poc" / "ExportNotes.class"
@@ -87,12 +99,20 @@ try:
             common = [java,"-Djava.awt.headless=true","-Dfile.encoding=UTF-8","-Djpackage.app-version=5.11.0",f"-Dmusicrecognition.output={attempt}",
                       "--add-exports=java.desktop/sun.awt.image=ALL-UNNAMED","--enable-native-access=ALL-UNNAMED","-cp",str(classes)+os.pathsep+str(app / "app" / "*"),"Audiveris","-batch"]
             omr = attempt / "omr"
-            run(common + ["-transcribe","-export","-save","-output",omr,"--",attempt / "recognition.png"])
-            shutil.copyfile(omr / "recognition.omr",attempt / "score.omr")
-            shutil.copyfile(omr / "recognition.mxl",attempt / "score.mxl")
-            run(common + ["-run","musicrecognition.poc.ExportNotes","--",attempt / "score.omr"])
+            run(common + ["-transcribe","-export","-save","-output",omr,"--",attempt / "engine-input.png"])
+            shutil.copyfile(omr / "engine-input.omr",attempt / "score.omr")
+            shutil.copyfile(omr / "engine-input.mxl",attempt / "score.mxl")
+            # The official CLI may auto-save a modified graph, even without -save.
+            # Compatibility changes therefore run on a separate OMR working copy.
+            shutil.copyfile(attempt / "score.omr", attempt / "export-work.omr")
+            run(common + ["-run","musicrecognition.poc.ExportNotes","--",attempt / "export-work.omr"])
+            notes_path = attempt / "notes-1.json"
+            shutil.copyfile(notes_path, attempt / "engine-notes-1.json")
+            evidence = recover_octaves(notes_path, attempt / "recognition.png", attempt / "octave-repairs.json")
+            notes = apply_to_notes(json.loads(notes_path.read_text(encoding="utf-8")), evidence)
+            notes_path.write_text(json.dumps(notes, ensure_ascii=False), encoding="utf-8")
             validate(attempt)
-            (attempt / "manifest.json").write_text(json.dumps({"sourceSha256":hashlib.sha256(source.read_bytes()).hexdigest(),"engine":"Audiveris 5.11.0"}),encoding="utf-8")
+            (attempt / "manifest.json").write_text(json.dumps({"sourceSha256":hashlib.sha256(source.read_bytes()).hexdigest(),"engine":"Audiveris 5.11.0","preprocessing":args.preprocess,"adapterRevision":4}),encoding="utf-8")
             attempt.rename(raw)
     else:
         if not args.version or not args.labels or not args.font:
@@ -104,12 +124,16 @@ try:
             attempt = args.job / ("render-" + uuid.uuid4().hex)
             command = [sys.executable,args.root / "scripts" / "poc" / "annotate.py","--image",raw / "recognition.png","--omr",raw / "score.omr",
                        "--mxl",raw / "score.mxl","--notes",raw / "notes-1.json","--output",attempt,"--labels",args.labels,"--font",args.font]
-            if args.extension == ".pdf": command += ["--pdf-source",source]
+            if args.style: command += ["--style", args.style]
+            if (raw / "preprocessing.json").exists(): command += ["--preprocessing", raw / "preprocessing.json"]
+            if args.extension == ".pdf":
+                geometry = json.loads((raw / "pdf-geometry.json").read_text())
+                command += ["--pdf-source",source,"--dpi",str(geometry["rasterDpi"])]
             run(command)
             # P0 preview assumes fixed C. P1 exposes only neutral JSON/PDF artifacts via API.
             (attempt / "preview.html").unlink(missing_ok=True)
             attempt.rename(target)
 except Exception as error:
-    code = error.code if isinstance(error, PipelineError) else "invalid-source" if isinstance(error, (ValueError, Image.DecompressionBombError)) else "tool-failed"
+    code = error.code if isinstance(error, (PipelineError, PdfInputError, OctaveRecoveryUnavailable)) else "preprocessing-unavailable" if isinstance(error, PreprocessingUnavailable) else "invalid-source" if isinstance(error, (ValueError, Image.DecompressionBombError)) else "tool-failed"
     error_path.write_text(json.dumps({"code":code,"message":str(error)},ensure_ascii=False),encoding="utf-8")
     raise

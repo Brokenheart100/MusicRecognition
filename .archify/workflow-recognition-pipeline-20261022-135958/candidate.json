@@ -1,0 +1,96 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "乐谱识别流水线",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-recognition-pipeline-20261022-135958/recognition-pipeline.html",
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "frontend": { "label": "前端工作台" },
+        "backend": { "label": "服务与 Worker" },
+        "messagebus": { "label": "调度队列" },
+        "security": { "label": "失败与重试" }
+      }
+    }
+  },
+  "lanes": [
+    { "id": "web", "label": "前端工作台" },
+    { "id": "api", "label": "API 服务" },
+    { "id": "worker", "label": "Worker · 调度与识别" },
+    { "id": "exception", "label": "异常与重试", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "submit", "label": "提交与受理", "fromCol": 0, "toCol": 1 },
+    { "id": "queue", "label": "排队", "fromCol": 2, "toCol": 2, "variant": "dashed" },
+    { "id": "recognize", "label": "准备与识别", "fromCol": 3, "toCol": 4, "variant": "emphasis" },
+    { "id": "deliver", "label": "校对与导出", "fromCol": 5, "toCol": 5 }
+  ],
+  "mainPath": ["upload", "intake", "dispatch", "prepare", "recognize", "review"],
+  "nodes": [
+    { "id": "upload", "lane": "web", "col": 0, "type": "frontend", "label": "上传乐谱", "sublabel": "PDF · JPG · PNG", "width": 136 },
+    { "id": "review", "lane": "web", "col": 5, "type": "frontend", "label": "校对工作台", "sublabel": "音高 · 拖拽 · 隐藏", "width": 136 },
+
+    { "id": "intake", "lane": "api", "col": 1, "type": "backend", "label": "POST /api/scores", "sublabel": "校验 · 建 Queued", "width": 136 },
+    { "id": "export", "lane": "api", "col": 5, "type": "backend", "label": "POST /exports", "sublabel": "生成修订版本", "width": 136 },
+
+    { "id": "dispatch", "lane": "worker", "col": 2, "type": "messagebus", "label": "DispatchService", "sublabel": "每 2 秒扫 outbox", "width": 136 },
+    { "id": "prepare", "lane": "worker", "col": 3, "type": "backend", "label": "准备文档", "sublabel": "document.py · 216 DPI", "width": 136 },
+    { "id": "recognize", "lane": "worker", "col": 4, "type": "backend", "label": "Audiveris 识别", "sublabel": "OMR → notes-1.json", "width": 136 },
+    { "id": "render", "lane": "worker", "col": 5, "type": "backend", "label": "渲染标注 PDF", "sublabel": "reportlab · 合并", "width": 136 },
+
+    { "id": "failed", "lane": "exception", "col": 4, "type": "security", "label": "识别失败", "sublabel": "超时 · 加密 · 页数", "width": 136 },
+    { "id": "retry", "lane": "exception", "col": 5, "type": "security", "label": "用户重试", "sublabel": "回 Queued", "width": 136 }
+  ],
+  "edges": [
+    { "from": "upload", "to": "intake", "variant": "emphasis", "role": "main" },
+    { "from": "intake", "to": "dispatch", "role": "main", "label": "Queued" },
+    { "from": "dispatch", "to": "prepare", "role": "main", "label": "recognition 队列" },
+    { "from": "prepare", "to": "recognize", "role": "main", "label": "单页" },
+    { "from": "recognize", "to": "review", "role": "main", "label": "Ready · v1" },
+    { "from": "review", "to": "export", "role": "main", "label": "保存修订" },
+    { "from": "export", "to": "render", "role": "main", "label": "render 队列" },
+    { "from": "recognize", "to": "failed", "role": "error", "variant": "security", "label": "ToolFailure" },
+    { "from": "failed", "to": "retry", "role": "branch", "variant": "dashed", "label": "POST /retry" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "状态机",
+      "items": [
+        "作业：Queued → Processing → Ready，失败落 Failed 并带 ErrorCode",
+        "取消：CancelRequested → Cancelling → Cancelled，Worker 每 500ms 轮询一次",
+        "重试：POST /{id}/retry 把 Failed 退回 Queued，由调度重新派发"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "幂等与并发",
+      "items": [
+        "RequestHash 唯一索引：同一份上传重复提交返回同一作业",
+        "DispatchService 在 music-dispatch 锁内扫 outbox，重复入队安全",
+        "每个乐谱用 score-<id> 分布式锁串行，Worker 只开 1 个线程"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "多页乐谱",
+      "items": [
+        "父作业调 document.py prepare，按页拆成子作业并各存一份 source.pdf",
+        "每页独立识别，进度与失败按页可见",
+        "导出时 document.py merge 把各页标注合回整份 PDF"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "文件布局",
+      "items": [
+        "DataRoot/<id>/source.pdf：原件；document/ 下是拆页结果",
+        "raw/notes-1.json：Audiveris 原始音符，含 bounds 与 interline",
+        "labels-<version>.json 与 *.log：导出标签与工具日志"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+// Continue from the reviewed Minuet revision 2 produced by p2-browser-acceptance.js.
+async (page) => {
+  const assert = (value, message) => { if (!value) throw new Error(message) }
+  if (!await page.getByRole('option', { name: '谱表 1', exact: true }).isVisible())
+    await page.getByRole('combobox', { name: '选择谱表', exact: true }).click()
+  await page.getByRole('option', { name: '谱表 1', exact: true }).click()
+  const filtered = await page.locator('.note-target').count()
+  assert(filtered > 0 && filtered < 201, 'Staff filtering failed')
+  await page.getByRole('combobox', { name: '选择谱表', exact: true }).click()
+  await page.getByRole('option', { name: '全部谱表', exact: true }).click()
+  await page.getByRole('combobox', { name: '选择声部', exact: true }).click()
+  await page.getByRole('option', { name: '声部 1', exact: true }).click()
+  const voiceCount = await page.locator('.note-target').count()
+  assert(voiceCount > 0, 'Voice filtering failed')
+  await page.getByRole('combobox', { name: '选择声部', exact: true }).click()
+  await page.getByRole('option', { name: '全部声部', exact: true }).click()
+  const id = await page.evaluate(async () => {
+    const id = localStorage.getItem('pujian:active'), item = JSON.parse(localStorage.getItem('pujian:scores:v1')).find(r => r.id === id)
+    const r = await (await fetch(`/api/scores/${id}/revisions`, { headers: { 'X-Score-Token': item.token } })).json()
+    return r.score.notes.find(n => n.placement?.x != null && !n.placement.hidden).id
+  })
+  await page.locator(`.note-target[data-note-id="${id}"]`).click()
+  const label = page.locator(`.annotation-label[data-note-id="${id}"]`)
+  const before = await label.getAttribute('transform')
+  await page.keyboard.press('ArrowRight')
+  const moved = await label.getAttribute('transform')
+  assert(before !== moved, 'Keyboard nudge failed')
+  await page.keyboard.press('Control+z'); assert(await label.getAttribute('transform') === before, 'Keyboard undo failed')
+  await page.keyboard.press('Control+Shift+z'); assert(await label.getAttribute('transform') === moved, 'Keyboard redo failed')
+  page.once('dialog', dialog => dialog.accept())
+  await page.reload()
+  await page.locator(`.annotation-label[data-note-id="${id}"]`).waitFor()
+  assert(await label.getAttribute('transform') === moved, 'Local draft was not restored')
+  await page.locator(`.note-target[data-note-id="${id}"]`).click()
+  const start = await label.boundingBox(), target = await page.locator(`.note-target[data-note-id="${id}"]`).boundingBox()
+  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2)
+  await page.mouse.down(); await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 10 }); await page.mouse.up()
+  await page.getByRole('combobox', { name: '音名', exact: true }).focus()
+  await page.keyboard.press('Control+s')
+  await page.getByRole('status').filter({ hasText: '已保存，可以从容练习' }).waitFor({ timeout: 45000 })
+  assert(await label.count() === 0, 'A conflicting saved placement must not be painted in the preview')
+  const collision = await page.evaluate(async (id) => {
+    const current = localStorage.getItem('pujian:active'), item = JSON.parse(localStorage.getItem('pujian:scores:v1')).find(r => r.id === current)
+    const data = await (await fetch(`/api/scores/${current}/artifacts/annotations.json?version=3`, { headers: { 'X-Score-Token': item.token } })).json()
+    return data.annotations.find(a => a.noteId === id).status
+  }, id)
+  assert(collision === 'needs-manual-placement', 'Original ink collision was not retained for review')
+  await page.getByRole('button', { name: '恢复自动布局', exact: true }).click()
+  await page.getByRole('button', { name: '保存修改', exact: true }).click()
+  await page.getByRole('status').filter({ hasText: '已保存，可以从容练习' }).waitFor({ timeout: 45000 })
+  assert(await label.count() === 1, 'Automatic layout did not restore a valid placement')
+  await page.keyboard.press('Control+k')
+  await page.getByRole('dialog').waitFor(); await page.keyboard.press('Escape')
+  await page.getByRole('dialog').waitFor({ state: 'hidden' })
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: '导出 PDF', exact: true }).click()
+  await (await download).saveAs('output/pdf/p2-minuet-reviewed-r4.pdf')
+  return { filteredStaffNotes: filtered, voiceNotes: voiceCount, keyboardNudgeUndoRedo: true, localDraftRestored: true,
+    ctrlSWhileSelectFocused: true, collisionPreservedAsPending: true, conflictingPreviewSuppressed: true, automaticPlacementRecovered: true,
+    keyboardHelpOpened: true, finalRevision: 4 }
+}

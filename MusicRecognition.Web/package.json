@@ -1,0 +1,46 @@
+{
+  "name": "pujian-workspace",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.19.0",
+  "scripts": {
+    "predev": "node scripts/prepare-pdfjs.mjs",
+    "dev": "nuxt dev --host 0.0.0.0",
+    "prebuild": "node scripts/prepare-pdfjs.mjs",
+    "build": "nuxt build",
+    "preview": "node .output/server/index.mjs",
+    "prepare": "node scripts/prepare-pdfjs.mjs && nuxt prepare",
+    "typecheck": "nuxt typecheck",
+    "lint": "eslint .",
+    "api:pull": "node scripts/pull-openapi.mjs",
+    "api:generate": "openapi-ts",
+    "api:check": "node scripts/check-generated.mjs",
+    "test:contract": "tsx scripts/check-contract.ts"
+  },
+  "dependencies": {
+    "@iconify-json/lucide": "1.2.98",
+    "@nuxt/ui": "4.12.0",
+    "@pinia/nuxt": "1.0.3",
+    "@tanstack/vue-query": "5.104.5",
+    "@vueuse/core": "15.0.0",
+    "@vueuse/nuxt": "15.0.0",
+    "nuxt": "4.6.2",
+    "opensheetmusicdisplay": "2.2.1",
+    "pdfjs-dist": "6.4.299",
+    "pinia": "4.1.0",
+    "tailwindcss": "4.3.0",
+    "vue": "3.5.44",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "@nuxt/eslint": "1.17.0",
+    "eslint": "10.13.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vue-tsc": "3.3.1"
+  },
+  "overrides": {
+    "js-yaml": "4.3.2"
+  }
+}

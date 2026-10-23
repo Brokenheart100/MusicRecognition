@@ -66,6 +66,8 @@ Revision 3 的数字字符串变短，布局结果为 201 / 201 自动放置；�
 
 复杂 `SchbAvMaSample.pdf` 通过 API 重新实际执行，结果 Failed / `pitch-consistency-failed` / CurrentRevision=0。Score `358eb076-30c5-4b21-ae8d-85131a18e7e8`；HeadInter 与 MusicXML 的不一致保持失败，未生成可下载的合格导出，也没有按顺序凑音符。详细原因保留在该任务日志及 error.json。
 
+> 2026-10-22 追加：后续已针对渐强导出异常和无效调号上下文不一致加入兼容修复，并用新的三页上传任务完成验收，见 [音高一致性修复报告](pitch-consistency-fix.md)。上文保留 P1 当时的实际失败结果；历史 Score 和修订不会自动变更。新的回放证据与全新识谱结果应分别判断，不能据此推断任意旧样本已恢复或音高达到人工真值。
+
 ## 仍未覆盖
 
 全页人工语义 ground truth、多页 PDF、任意倾斜扫描、图片 EXIF 方向、完整 ottava、跨谱表高级语义、手动移动标注、MusicXML 输入重排、独立导出重试 / 取消、账户和凭据 TTL、限流、隔离沙箱、容器化工具与字体、清理、容量、生产部署与恢复均未验收。Worker 目前与本机工具、共享本地目录配套。

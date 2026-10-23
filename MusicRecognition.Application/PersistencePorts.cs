@@ -9,6 +9,11 @@ public sealed class ScoreJob
     public string FileHash { get; set; } = "";
     public string FileName { get; set; } = "";
     public string Extension { get; set; } = "";
+    public PreprocessingMode Preprocessing { get; set; } = PreprocessingMode.None;
+    public Guid? ParentId { get; set; }
+    public int PageNumber { get; set; } = 1;
+    public int PageCount { get; set; } = 1;
+    public bool PagesPrepared { get; set; }
     public string State { get; set; } = "Queued";
     public int Attempts { get; set; }
     public int CurrentRevision { get; set; }
@@ -34,6 +39,8 @@ public interface IScoreRepository
     Task<ScoreJob?> FindJobAsync(Guid id,CancellationToken ct);
     Task<ScoreJob?> FindRequestAsync(string hash,CancellationToken ct);
     Task<ScoreRevision?> FindRevisionAsync(Guid id,int version,CancellationToken ct);
+    Task<ScoreJob[]> FindPagesAsync(Guid parentId, CancellationToken ct);
+    Task<PageJobView[]> PageViewsAsync(Guid parentId, CancellationToken ct);
     void Add(ScoreJob job);
     void Add(ScoreRevision revision);
     Task SaveAsync(CancellationToken ct);

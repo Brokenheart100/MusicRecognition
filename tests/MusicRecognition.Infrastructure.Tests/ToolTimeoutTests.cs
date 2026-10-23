@@ -10,7 +10,7 @@ public sealed class ToolTimeoutTests
         var root=Environment.GetEnvironmentVariable("MUSICRECOGNITION_TEST_ROOT") ?? throw new InvalidOperationException("Set MUSICRECOGNITION_TEST_ROOT for real-tool integration tests.");
         var python=Environment.GetEnvironmentVariable("MUSICRECOGNITION_PYTHON") ?? "python";
         var options=new RecognitionOptions {RepositoryRoot=root,DataRoot=Path.Combine(root,"output","p1","timeout"),Python=python,TimeoutSeconds=10};
-        var files=new FileStorage(options);var id=Guid.NewGuid();Directory.CreateDirectory(files.JobDirectory(id));
+        var files=new FileStorage(options,NullLogger<FileStorage>.Instance);var id=Guid.NewGuid();Directory.CreateDirectory(files.JobDirectory(id));
         File.Copy(Path.Combine(root,"output","poc-pdf","input","Minuet-xpose-a4.pdf"),Path.Combine(files.JobDirectory(id),"source.pdf"));
         var engine=new ToolEngine(options,files,NullLogger<ToolEngine>.Instance);
         var error=await Assert.ThrowsAsync<ToolFailure>(()=>engine.RecognizeAsync(id,".pdf",CancellationToken.None));

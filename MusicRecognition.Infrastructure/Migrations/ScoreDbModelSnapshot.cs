@@ -22,7 +22,7 @@ namespace MusicRecognition.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("MusicRecognition.Infrastructure.ScoreJob", b =>
+            modelBuilder.Entity("MusicRecognition.Application.ScoreJob", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -61,6 +61,27 @@ namespace MusicRecognition.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("PageCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<int>("PageNumber")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<bool>("PagesPrepared")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Preprocessing")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("RequestHash")
                         .IsRequired()
                         .HasColumnType("text");
@@ -87,10 +108,14 @@ namespace MusicRecognition.Infrastructure.Migrations
                     b.HasIndex("RequestHash")
                         .IsUnique();
 
+                    b.HasIndex("ParentId", "PageNumber")
+                        .IsUnique()
+                        .HasFilter("\"ParentId\" IS NOT NULL");
+
                     b.ToTable("Jobs");
                 });
 
-            modelBuilder.Entity("MusicRecognition.Infrastructure.ScoreRevision", b =>
+            modelBuilder.Entity("MusicRecognition.Application.ScoreRevision", b =>
                 {
                     b.Property<Guid>("JobId")
                         .HasColumnType("uuid");
@@ -117,9 +142,17 @@ namespace MusicRecognition.Infrastructure.Migrations
                     b.ToTable("Revisions");
                 });
 
-            modelBuilder.Entity("MusicRecognition.Infrastructure.ScoreRevision", b =>
+            modelBuilder.Entity("MusicRecognition.Application.ScoreJob", b =>
                 {
-                    b.HasOne("MusicRecognition.Infrastructure.ScoreJob", null)
+                    b.HasOne("MusicRecognition.Application.ScoreJob", null)
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("MusicRecognition.Application.ScoreRevision", b =>
+                {
+                    b.HasOne("MusicRecognition.Application.ScoreJob", null)
                         .WithMany()
                         .HasForeignKey("JobId")
                         .OnDelete(DeleteBehavior.Cascade)

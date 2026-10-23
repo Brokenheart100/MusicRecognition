@@ -58,10 +58,30 @@ public static class Numbering
 }
 
 public sealed record Rect(double X, double Y, double Width, double Height);
+public sealed record AnnotationPlacement(bool Hidden, double? X, double? Y)
+{
+    public void Validate(int pageWidth, int pageHeight)
+    {
+        if (X.HasValue != Y.HasValue || (X.HasValue &&
+            (!double.IsFinite(X.Value) || !double.IsFinite(Y!.Value) || X < 0 || Y < 0 || X >= pageWidth || Y >= pageHeight)))
+            throw new ArgumentException("Placement requires both finite coordinates inside the recognition page, or neither for automatic layout.");
+    }
+}
 public sealed record Note(Guid Id, int InterId, int Measure, int Part, int Staff, int Voice,
-    Pitch Pitch, Rect Bounds, NumberedLabel Label);
+    Pitch Pitch, Rect Bounds, NumberedLabel Label, AnnotationPlacement? Placement = null, AnnotationStyle? Style = null);
+public sealed record AnnotationStyle(double? FontSizePoints = null, string Color = "#000000")
+{
+    public static AnnotationStyle Default => new();
+    public void Validate()
+    {
+        if (FontSizePoints is { } size && (!double.IsFinite(size) || size is < 3 or > 16))
+            throw new ArgumentException("Annotation font size must be between 3 and 16 PDF points, or null for automatic sizing.");
+        if (Color is null || !System.Text.RegularExpressions.Regex.IsMatch(Color, "\\A#[0-9a-fA-F]{6}\\z"))
+            throw new ArgumentException("Annotation color must be a six-digit hex color, such as #000000.");
+    }
+}
 public sealed record ScoreSnapshot(int Width, int Height, int Interline, string Engine,
-    NumberingOptions Numbering, Note[] Notes, string[] Warnings);
+    NumberingOptions Numbering, Note[] Notes, string[] Warnings, AnnotationStyle? AnnotationStyle = null);
 
 // Coordinates are always the upright CropBox raster; /Rotate is display metadata.
 public sealed record PdfGeometry(double Left, double Bottom, double Right, double Top, int Rotation, double Dpi = 216)

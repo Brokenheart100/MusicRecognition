@@ -2,7 +2,9 @@
 from dataclasses import dataclass
 import hashlib
 import math
+import os
 from pathlib import Path
+import shutil
 import subprocess
 
 from pypdf import PdfReader, PdfWriter
@@ -56,10 +58,18 @@ class PageGeometry:
                 "pixelGeometry": "upright-CropBox-top-left", "pdfGeometry": "unrotated-user-space-bottom-left"}
 
 
+class PdfInputError(ValueError):
+    def __init__(self, code, message):
+        self.code = code
+        super().__init__(message)
+
+
 def read_page(path):
     reader = PdfReader(path)
-    if reader.is_encrypted or len(reader.pages) != 1:
-        raise ValueError("P0 PDF input must be unencrypted and contain exactly one page")
+    if reader.is_encrypted:
+        raise PdfInputError("encrypted-pdf", "Password-protected PDFs are not supported. Import an unencrypted single-page PDF.")
+    if len(reader.pages) != 1:
+        raise PdfInputError("unsupported-page-count", f"PDF contains {len(reader.pages)} pages; the current recognition workflow requires exactly one page.")
     page = reader.pages[0]
     if float(page.user_unit) != 1:
         raise ValueError("Non-default PDF UserUnit is not validated in P0")
@@ -72,19 +82,38 @@ def read_page(path):
     return reader,page
 
 
-def geometry_for(path, image_size, dpi=216):
+def geometry_for(path: Path, image_size: tuple[int, int], dpi: float = 216) -> PageGeometry:
     _,page = read_page(path)
     expected = (math.ceil(float(page.cropbox.width)*dpi/72), math.ceil(float(page.cropbox.height)*dpi/72))
     if tuple(image_size) != expected:
         raise ValueError(f"Expected fixed-DPI raster {expected}, received {image_size}")
-    return PageGeometry(tuple(map(float,page.mediabox)),tuple(map(float,page.cropbox)),
-                        page.rotation % 360,*image_size,dpi)
+    media, crop = tuple(map(float, page.mediabox)), tuple(map(float, page.cropbox))
+    if len(media) != 4 or len(crop) != 4:
+        raise ValueError("Expected four-value MediaBox and CropBox")
+    return PageGeometry((media[0], media[1], media[2], media[3]), (crop[0], crop[1], crop[2], crop[3]),
+                        page.rotation % 360, *image_size, dpi)
 
 
-def prepare_pdf(source: Path, output: Path, dpi=216):
+def choose_pdf_dpi(page):
+    for dpi in (216, 180, 144, 108, 72):
+        if math.ceil(float(page.cropbox.width)*dpi/72) * math.ceil(float(page.cropbox.height)*dpi/72) <= 20_000_000:
+            return dpi
+    raise PdfInputError("image-too-large", "PDF page exceeds 20 million pixels even at 72 DPI")
+
+
+def resolve_pdftoppm(configured=None):
+    configured = configured or os.environ.get("MUSICRECOGNITION_PDFTOPPM")
+    executable = Path(configured).expanduser() if configured else Path(shutil.which("pdftoppm") or "__missing_pdftoppm__")
+    if not executable.is_file():
+        raise PdfInputError("pdf-renderer-unavailable", "Poppler pdftoppm is missing. Run scripts/runtime/prepare.ps1 or configure Recognition:Pdftoppm with an executable path.")
+    return str(executable.resolve())
+
+
+def prepare_pdf(source: Path, output: Path, dpi=None, pdftoppm=None):
     """Rasterize ONLY a temporary upright CropBox; original PDF is never rasterized for export."""
     from PIL import Image
     _,page = read_page(source)
+    dpi = dpi or choose_pdf_dpi(page)
     output.mkdir(parents=True,exist_ok=True)
     writer = PdfWriter()
     temporary = writer.add_page(page)
@@ -93,7 +122,7 @@ def prepare_pdf(source: Path, output: Path, dpi=216):
     with canonical.open("wb") as stream:
         writer.write(stream)
     prefix = output / "recognition"
-    command = ["pdftoppm","-png","-singlefile","-cropbox","-r",str(dpi),str(canonical),str(prefix)]
+    command = [resolve_pdftoppm(pdftoppm),"-png","-singlefile","-cropbox","-r",str(dpi),str(canonical),str(prefix)]
     subprocess.run(command,check=True,capture_output=True)
     image = prefix.with_suffix(".png")
     with Image.open(image) as rendered:
