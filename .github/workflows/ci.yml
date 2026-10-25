@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+  PYTHONUTF8: '1'
+
+jobs:
+  backend:
+    name: Backend (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Set up Python for process fixtures
+        id: python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - name: Restore solution
+        run: dotnet restore MusicRecognition.slnx --artifacts-path output/ci/dotnet
+      - name: Build solution
+        run: dotnet build MusicRecognition.slnx -c Release --no-restore --artifacts-path output/ci/dotnet
+      - name: Test domain
+        run: >-
+          dotnet test tests/MusicRecognition.Domain.Tests -c Release --no-build --no-restore
+          --artifacts-path output/ci/dotnet --logger "trx;LogFileName=domain.trx"
+          --results-directory output/ci/results
+      - name: Test infrastructure and process cancellation
+        env:
+          MUSICRECOGNITION_PYTHON: ${{ steps.python.outputs.python-path }}
+        # Real Audiveris and missing-renderer checks need the separately provisioned toolchain.
+        run: >-
+          dotnet test tests/MusicRecognition.Infrastructure.Tests -c Release --no-build --no-restore
+          --artifacts-path output/ci/dotnet
+          --filter "(Category!=Integration)|(FullyQualifiedName~ToolProcessTests)|(FullyQualifiedName~ToolFailureLoggingTests)"
+          --logger "trx;LogFileName=infrastructure.trx" --results-directory output/ci/results
+      - name: Publish API
+        if: runner.os == 'Linux'
+        run: >-
+          dotnet publish MusicRecognition.Api -c Release --no-build --no-restore
+          --artifacts-path output/ci/dotnet -o output/ci/publish/api /p:UseAppHost=false
+      - name: Publish worker
+        if: runner.os == 'Linux'
+        run: >-
+          dotnet publish MusicRecognition.Worker -c Release --no-build --no-restore
+          --artifacts-path output/ci/dotnet -o output/ci/publish/worker /p:UseAppHost=false
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backend-tests-${{ matrix.os }}
+          path: output/ci/results/*.trx
+          if-no-files-found: ignore
+          retention-days: 7
+
+  python:
+    name: Python algorithms
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: scripts/setup/requirements*.txt
+      - name: Install algorithm dependencies
+        run: python -m pip install -r scripts/setup/requirements-opencv.txt
+      - name: Verify dependency compatibility
+        run: python -m pip check
+      - name: Test algorithms and PDF composition
+        run: python -m unittest discover -s tests/python -p 'test_*.py' -v
+
+  frontend:
+    name: Nuxt checks and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: MusicRecognition.Web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: MusicRecognition.Web/package-lock.json
+      - name: Use the project's npm version
+        run: npm install --global "$(node -p "require('./package.json').packageManager")"
+      - name: Restore frontend dependencies
+        run: npm ci
+      - name: Check generated SDK
+        run: npm run api:check
+      - name: Test API contracts
+        run: npm run test:contract
+      - name: Test annotation layout rules
+        run: npm run test:layout
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Build production Nuxt server
+        run: npm run build
+
+  checks:
+    name: All checks
+    if: always()
+    needs: [backend, python, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    env:
+      BACKEND_RESULT: ${{ needs.backend.result }}
+      PYTHON_RESULT: ${{ needs.python.result }}
+      FRONTEND_RESULT: ${{ needs.frontend.result }}
+    steps:
+      - name: Require every job to succeed
+        run: |
+          test "$BACKEND_RESULT" = success
+          test "$PYTHON_RESULT" = success
+          test "$FRONTEND_RESULT" = success

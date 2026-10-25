@@ -24,6 +24,7 @@
 - [一键复跑说明](tests/acceptance/README.md)
 - [环境准备与运行工具](scripts/README.md)
 - [测试与验收入口](tests/README.md)
+- [GitHub Actions 持续集成](docs/ci.md)
 - [脚本目录整理与验证](docs/repository-layout.md)
 - [下方优先标注与真实谱验证](docs/below-first-layout.md)
 - [自适应字号与密集和弦验证](docs/adaptive-font-sizing.md)
