@@ -4,11 +4,12 @@ using Xunit;
 public class AnnotationStyleTests
 {
     [Fact]
-    public void Default_preserves_automatic_sizing_and_black()
+    public void Default_uses_automatic_sizing_and_black()
     {
         AnnotationStyle.Default.Validate();
         Assert.Null(AnnotationStyle.Default.FontSizePoints);
         Assert.Equal("#000000", AnnotationStyle.Default.Color);
+        new AnnotationStyle(null).Validate(); // Explicit automatic sizing remains supported.
     }
 
     [Theory]

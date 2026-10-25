@@ -10,8 +10,8 @@ import sys
 import tempfile
 
 
-def validate_runtime(root: Path, pdftoppm: str, font: Path):
-    sys.path.insert(0, str(root / "scripts" / "poc"))
+def validate_runtime(root: Path, pdftoppm: str, font: Path, require_opencv=False, require_composition=False):
+    sys.path.insert(0, str(root / "scripts" / "runtime"))
     from pdf_geometry import prepare_pdf, resolve_pdftoppm
 
     executable = resolve_pdftoppm(pdftoppm)
@@ -32,8 +32,8 @@ def validate_runtime(root: Path, pdftoppm: str, font: Path):
     if not major or int(major.group(1)) < 25:
         raise RuntimeError("The Java adapter requires Java 25 or newer.")
     adapter = root / ".tools" / "poc-classes" / "musicrecognition" / "poc" / "ExportNotes.class"
-    if not adapter.is_file() or adapter.stat().st_mtime < (root / "scripts" / "poc" / "ExportNotes.java").stat().st_mtime:
-        raise RuntimeError("Java adapter is missing or outdated; run scripts/runtime/prepare.ps1.")
+    if not adapter.is_file() or adapter.stat().st_mtime < (root / "scripts" / "runtime" / "ExportNotes.java").stat().st_mtime:
+        raise RuntimeError("Java adapter is missing or outdated; run scripts/setup/prepare.ps1.")
     with TTFont(font) as face:
         if not set(map(ord, "1234567♭♯")) <= set(face.getBestCmap()):
             raise RuntimeError("Annotation font lacks required numbered-notation glyphs.")
@@ -43,6 +43,15 @@ def validate_runtime(root: Path, pdftoppm: str, font: Path):
         if error.name != "cv2":
             raise
         opencv_version = None
+    if require_opencv and opencv_version is None:
+        raise RuntimeError("OpenCV is required by this deployment; install requirements-opencv.txt.")
+    if require_composition:
+        importlib.import_module('music21')
+        from fragments import muse_score
+        engraving = subprocess.run([str(muse_score(root)), '--version'], capture_output=True, timeout=30,
+                       env={**os.environ,'QT_QPA_PLATFORM':'windows' if os.name=='nt' else 'offscreen'})
+        if engraving.returncode:
+            raise RuntimeError('MuseScore 启动失败：'+engraving.stderr.decode('utf-8',errors='replace')[-2000:])
     with tempfile.TemporaryDirectory(prefix="musicrecognition-preflight-") as temporary:
         folder = Path(temporary)
         source = folder / "smoke.pdf"
@@ -63,9 +72,11 @@ if __name__ == "__main__":
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--pdftoppm", required=True)
     parser.add_argument("--font", type=Path, required=True)
+    parser.add_argument("--require-opencv", action="store_true")
+    parser.add_argument("--require-composition", action="store_true")
     args = parser.parse_args()
     try:
-        print(json.dumps(validate_runtime(args.root, args.pdftoppm, args.font), ensure_ascii=False))
+        print(json.dumps(validate_runtime(args.root, args.pdftoppm, args.font, args.require_opencv, args.require_composition), ensure_ascii=False))
     except Exception as error:
         print(f"Recognition dependency check failed: {error}", file=sys.stderr)
         sys.exit(1)

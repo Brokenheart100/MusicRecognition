@@ -76,6 +76,69 @@ export type DocumentPageRef = {
     version: number;
 };
 
+export type FragmentCrop = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+};
+
+export type FragmentImage = {
+    index: number;
+    fileName: string;
+};
+
+export type FragmentPlan = {
+    title: string;
+    fragments: Array<FragmentSelection>;
+    reviewConfirmed: boolean;
+};
+
+export type FragmentResult = {
+    measureCount: number;
+    noteCount: number;
+    pdfPages: number;
+    warnings: Array<string>;
+    fragments: Array<FragmentSummary>;
+    music21Version: string;
+    recognitionKey: string;
+    selectedEventsPreserved: boolean;
+    reviewConfirmed: boolean;
+};
+
+export type FragmentRevisionRequest = {
+    expectedRevision: number;
+    plan: FragmentPlan;
+};
+
+export type FragmentSelection = {
+    sourceIndex: number;
+    crop: null | FragmentCrop;
+    startMeasure: number;
+    endMeasure: null | number;
+};
+
+export type FragmentSummary = {
+    index: number;
+    fileName: string;
+    measureCount: number;
+    startMeasure: number;
+    endMeasure: number;
+    keptMeasureCount: number;
+};
+
+export type FragmentView = {
+    id: string;
+    state: 'Queued' | 'Processing' | 'Cancelling' | 'Cancelled' | 'Ready' | 'Failed';
+    version: number;
+    stage: string;
+    errorCode: null | string;
+    errorMessage: null | string;
+    sources: Array<FragmentImage>;
+    plan: FragmentPlan;
+    result: null | FragmentResult;
+};
+
 export type GlyphsView = {
     unitsPerEm: number;
     characters: {
@@ -89,6 +152,8 @@ export type GlyphView = {
 };
 
 export type IFormFile = Blob | File;
+
+export type IFormFileCollection = Array<Blob | File>;
 
 export type JobView = {
     id: string;
@@ -123,7 +188,7 @@ export type Note = {
     bounds: Rect;
     label: NumberedLabel;
     placement: null | AnnotationPlacement;
-    style?: null | AnnotationStyle;
+    style: null | AnnotationStyle;
 };
 
 export type NumberedLabel = {
@@ -187,13 +252,35 @@ export type Rect = {
     height: number;
 };
 
+export type ReflowNote = {
+    xmlId: string;
+    noteId: string;
+    degree: number;
+    alteration: number;
+    octaveDots: number;
+    fontSizePoints: null | number;
+    color: string;
+    hidden: boolean;
+};
+
+export type ReflowView = {
+    formatVersion: number;
+    musicXml: string;
+    notes: Array<ReflowNote>;
+    sourceHeadCount: number;
+    mappedHeadCount: number;
+    omittedHeadCount: number;
+    warnings: Array<string>;
+    validationPolicy: string;
+};
+
 export type RevisionRequest = {
     expectedRevision: number;
     corrections: Array<Correction>;
     numbering: NumberingOptions;
     placements: null | Array<PlacementChange>;
     annotationStyle: null | AnnotationStyle;
-    styleChanges?: null | Array<StyleChange>;
+    styleChanges: null | Array<StyleChange>;
 };
 
 export type RevisionView = {
@@ -220,7 +307,7 @@ export type Step = 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B';
 
 export type StyleChange = {
     noteId: string;
-    style?: null | AnnotationStyle;
+    style: null | AnnotationStyle;
 };
 
 export type ImportScoreData = {
@@ -263,6 +350,10 @@ export type ImportScoreErrors = {
      * Unsupported Media Type
      */
     415: ProblemDetails;
+    /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
     /**
      * Internal Server Error
      */
@@ -317,6 +408,10 @@ export type GetScoreErrors = {
      * Unsupported Media Type
      */
     415: ProblemDetails;
+    /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
     /**
      * Internal Server Error
      */
@@ -374,6 +469,10 @@ export type GetRevisionErrors = {
      */
     415: ProblemDetails;
     /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
+    /**
      * Internal Server Error
      */
     500: ProblemDetails;
@@ -428,6 +527,10 @@ export type CreateRevisionErrors = {
      */
     415: ProblemDetails;
     /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
+    /**
      * Internal Server Error
      */
     500: ProblemDetails;
@@ -481,6 +584,10 @@ export type CreateDocumentExportErrors = {
      * Unsupported Media Type
      */
     415: ProblemDetails;
+    /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
     /**
      * Internal Server Error
      */
@@ -537,6 +644,10 @@ export type GetDocumentExportErrors = {
      */
     415: ProblemDetails;
     /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
+    /**
      * Internal Server Error
      */
     500: ProblemDetails;
@@ -591,6 +702,10 @@ export type CancelScoreErrors = {
      */
     415: ProblemDetails;
     /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
+    /**
      * Internal Server Error
      */
     500: ProblemDetails;
@@ -644,6 +759,10 @@ export type RetryScoreErrors = {
      * Unsupported Media Type
      */
     415: ProblemDetails;
+    /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
     /**
      * Internal Server Error
      */
@@ -701,6 +820,10 @@ export type GetScoreArtifactErrors = {
      * Unsupported Media Type
      */
     415: ProblemDetails;
+    /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
     /**
      * Internal Server Error
      */
@@ -762,6 +885,10 @@ export type GetScoreLayoutErrors = {
      */
     415: ProblemDetails;
     /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
+    /**
      * Internal Server Error
      */
     500: ProblemDetails;
@@ -777,3 +904,482 @@ export type GetScoreLayoutResponses = {
 };
 
 export type GetScoreLayoutResponse = GetScoreLayoutResponses[keyof GetScoreLayoutResponses];
+
+export type GetScoreReflowData = {
+    body?: never;
+    headers: {
+        'X-Score-Token': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: {
+        version?: number;
+    };
+    url: '/api/scores/{id}/reflow';
+};
+
+export type GetScoreReflowErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+    /**
+     * Payload Too Large
+     */
+    413: ProblemDetails;
+    /**
+     * Unsupported Media Type
+     */
+    415: ProblemDetails;
+    /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
+    /**
+     * Internal Server Error
+     */
+    500: ProblemDetails;
+};
+
+export type GetScoreReflowError = GetScoreReflowErrors[keyof GetScoreReflowErrors];
+
+export type GetScoreReflowResponses = {
+    /**
+     * OK
+     */
+    200: ReflowView;
+};
+
+export type GetScoreReflowResponse = GetScoreReflowResponses[keyof GetScoreReflowResponses];
+
+export type ImportFragmentsData = {
+    body: {
+        files: IFormFileCollection;
+    } & {
+        plan: string;
+    };
+    headers: {
+        'X-Score-Token': string;
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/fragments';
+};
+
+export type ImportFragmentsErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+    /**
+     * Payload Too Large
+     */
+    413: ProblemDetails;
+    /**
+     * Unsupported Media Type
+     */
+    415: ProblemDetails;
+    /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
+    /**
+     * Internal Server Error
+     */
+    500: ProblemDetails;
+};
+
+export type ImportFragmentsError = ImportFragmentsErrors[keyof ImportFragmentsErrors];
+
+export type ImportFragmentsResponses = {
+    /**
+     * Accepted
+     */
+    202: FragmentView;
+};
+
+export type ImportFragmentsResponse = ImportFragmentsResponses[keyof ImportFragmentsResponses];
+
+export type GetFragmentProjectData = {
+    body?: never;
+    headers: {
+        'X-Score-Token': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: {
+        version?: number;
+    };
+    url: '/api/fragments/{id}';
+};
+
+export type GetFragmentProjectErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+    /**
+     * Payload Too Large
+     */
+    413: ProblemDetails;
+    /**
+     * Unsupported Media Type
+     */
+    415: ProblemDetails;
+    /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
+    /**
+     * Internal Server Error
+     */
+    500: ProblemDetails;
+};
+
+export type GetFragmentProjectError = GetFragmentProjectErrors[keyof GetFragmentProjectErrors];
+
+export type GetFragmentProjectResponses = {
+    /**
+     * OK
+     */
+    200: FragmentView;
+};
+
+export type GetFragmentProjectResponse = GetFragmentProjectResponses[keyof GetFragmentProjectResponses];
+
+export type CreateFragmentRevisionData = {
+    body: FragmentRevisionRequest;
+    headers: {
+        'X-Score-Token': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/fragments/{id}/revisions';
+};
+
+export type CreateFragmentRevisionErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+    /**
+     * Payload Too Large
+     */
+    413: ProblemDetails;
+    /**
+     * Unsupported Media Type
+     */
+    415: ProblemDetails;
+    /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
+    /**
+     * Internal Server Error
+     */
+    500: ProblemDetails;
+};
+
+export type CreateFragmentRevisionError = CreateFragmentRevisionErrors[keyof CreateFragmentRevisionErrors];
+
+export type CreateFragmentRevisionResponses = {
+    /**
+     * Accepted
+     */
+    202: FragmentView;
+};
+
+export type CreateFragmentRevisionResponse = CreateFragmentRevisionResponses[keyof CreateFragmentRevisionResponses];
+
+export type GetFragmentArtifactData = {
+    body?: never;
+    headers: {
+        'X-Score-Token': string;
+    };
+    path: {
+        id: string;
+        name: string;
+    };
+    query: {
+        version: number;
+    };
+    url: '/api/fragments/{id}/artifacts/{name}';
+};
+
+export type GetFragmentArtifactErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+    /**
+     * Payload Too Large
+     */
+    413: ProblemDetails;
+    /**
+     * Unsupported Media Type
+     */
+    415: ProblemDetails;
+    /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
+    /**
+     * Internal Server Error
+     */
+    500: ProblemDetails;
+};
+
+export type GetFragmentArtifactError = GetFragmentArtifactErrors[keyof GetFragmentArtifactErrors];
+
+export type GetFragmentArtifactResponses = {
+    /**
+     * Artifact bytes; Content-Type reflects PDF, image or JSON.
+     */
+    200: Blob | File;
+    /**
+     * Partial artifact bytes.
+     */
+    206: Blob | File;
+};
+
+export type GetFragmentArtifactResponse = GetFragmentArtifactResponses[keyof GetFragmentArtifactResponses];
+
+export type GetFragmentImageData = {
+    body?: never;
+    headers: {
+        'X-Score-Token': string;
+    };
+    path: {
+        id: string;
+        index: number;
+    };
+    query?: never;
+    url: '/api/fragments/{id}/images/{index}';
+};
+
+export type GetFragmentImageErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+    /**
+     * Payload Too Large
+     */
+    413: ProblemDetails;
+    /**
+     * Unsupported Media Type
+     */
+    415: ProblemDetails;
+    /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
+    /**
+     * Internal Server Error
+     */
+    500: ProblemDetails;
+};
+
+export type GetFragmentImageError = GetFragmentImageErrors[keyof GetFragmentImageErrors];
+
+export type GetFragmentImageResponses = {
+    /**
+     * Artifact bytes; Content-Type reflects PDF, image or JSON.
+     */
+    200: Blob | File;
+};
+
+export type GetFragmentImageResponse = GetFragmentImageResponses[keyof GetFragmentImageResponses];
+
+export type RetryFragmentProjectData = {
+    body?: never;
+    headers: {
+        'X-Score-Token': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/fragments/{id}/retry';
+};
+
+export type RetryFragmentProjectErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+    /**
+     * Payload Too Large
+     */
+    413: ProblemDetails;
+    /**
+     * Unsupported Media Type
+     */
+    415: ProblemDetails;
+    /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
+    /**
+     * Internal Server Error
+     */
+    500: ProblemDetails;
+};
+
+export type RetryFragmentProjectError = RetryFragmentProjectErrors[keyof RetryFragmentProjectErrors];
+
+export type RetryFragmentProjectResponses = {
+    /**
+     * OK
+     */
+    200: FragmentView;
+};
+
+export type RetryFragmentProjectResponse = RetryFragmentProjectResponses[keyof RetryFragmentProjectResponses];
+
+export type CancelFragmentProjectData = {
+    body?: never;
+    headers: {
+        'X-Score-Token': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/fragments/{id}/cancel';
+};
+
+export type CancelFragmentProjectErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+    /**
+     * Payload Too Large
+     */
+    413: ProblemDetails;
+    /**
+     * Unsupported Media Type
+     */
+    415: ProblemDetails;
+    /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
+    /**
+     * Internal Server Error
+     */
+    500: ProblemDetails;
+};
+
+export type CancelFragmentProjectError = CancelFragmentProjectErrors[keyof CancelFragmentProjectErrors];
+
+export type CancelFragmentProjectResponses = {
+    /**
+     * OK
+     */
+    200: FragmentView;
+};
+
+export type CancelFragmentProjectResponse = CancelFragmentProjectResponses[keyof CancelFragmentProjectResponses];

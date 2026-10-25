@@ -237,6 +237,8 @@ button:disabled { cursor: not-allowed; }
 .guide-body li strong { color: #687691; font-weight: 500; }
 .guide-body li p { margin: 6px 0; font-size: 11px; }
 .shortcut-grid { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 20px; background: #eff2f9; border-radius: 14px; font-size: 10px; }
+.shortcut-section { margin-top: 18px; }
+.shortcut-section h3 { color: #687691; font-size: 12px; font-weight: 600; margin: 0 0 8px; }
 kbd { font-family: inherit; color: #858eaf; text-align: right; }
 .guide-note { font-size: 10px; line-height: 1.9; color: #a4aec1; margin: 20px 0 12px; }
 .sample-credit { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #8e99ba; }

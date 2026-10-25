@@ -34,7 +34,7 @@ def prepare(source: Path, destination: Path, mode: str) -> dict:
                 import cv2
                 import numpy as np
             except ImportError as error:
-                raise PreprocessingUnavailable("Install scripts/poc/requirements-opencv.txt in the selected Python environment") from error
+                raise PreprocessingUnavailable("Install scripts/setup/requirements-opencv.txt in the selected Python environment") from error
             cv2.setNumThreads(1)
             gray = np.asarray(image.convert("L"))
             block = min(51, min(size) if min(size) % 2 else min(size) - 1)

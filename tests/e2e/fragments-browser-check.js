@@ -1,0 +1,76 @@
+// Dedicated real Orange project: uploads supplied screenshots and creates revisions.
+async page => {
+  const assert=(condition,message)=>{if(!condition)throw new Error(message)}
+  const errors=[];page.on('pageerror',error=>errors.push(error.message))
+  const waitReady=async(version)=>{
+    await page.waitForFunction(expected=>document.querySelector('.fragment-stats') && !document.querySelector('.fragment-status .spin') &&
+      (!expected || document.querySelector('.fragment-result')?.textContent.includes(`保存版本 v${expected} `)),version,{timeout:120000})
+  }
+  page.once('dialog',dialog=>dialog.accept())
+  await page.getByRole('button',{name:'新建拼谱',exact:true}).click()
+  await page.getByRole('textbox',{name:'拼谱标题'}).fill('Orange · 两张截图真实验证')
+  await page.getByLabel('添加谱面图片').setInputFiles(['D:/Downloads/【扒谱_阮克理】オレンジ _ Orange (2021) - 四月是你的谎言 ED2_00-00-10-484.png','D:/Downloads/【扒谱_阮克理】オレンジ _ Orange (2021) - 四月是你的谎言 ED2_00-00-16-572.png'])
+  await page.getByRole('button',{name:'识别并拼接',exact:true}).click()
+  await waitReady(1)
+  assert(await page.getByRole('button',{name:'下载重排 PDF',exact:true}).isDisabled(),'Unconfirmed PDF download must be gated')
+  assert(await page.locator('.fragment-summary li').count()===2,'Fragment boundaries missing')
+  const originalOrder=await page.locator('.fragment-card-head>span').allTextContents()
+  await page.getByRole('button',{name:'片段 2 上移',exact:true}).click()
+  assert((await page.locator('.fragment-card-head>span').allTextContents())[0]===originalOrder[1],'Reordering failed')
+  await page.getByRole('button',{name:'片段 1 下移',exact:true}).click()
+  await page.getByRole('button',{name:'框选谱面',exact:true}).first().click()
+  await page.getByRole('dialog').waitFor()
+  await page.getByRole('button',{name:'应用裁剪',exact:true}).click()
+  await page.getByRole('dialog').waitFor({state:'hidden'})
+  assert(await page.getByText('已手动框选',{exact:true}).count()===1,'Crop selection missing')
+  await page.getByRole('button',{name:'框选谱面',exact:true}).first().click()
+  await page.getByRole('button',{name:'自动去黑边',exact:true}).click()
+  await page.getByRole('dialog').waitFor({state:'hidden'})
+  await page.getByRole('checkbox').check()
+  const save=page.waitForResponse(r=>r.request().method()==='POST' && /\/api\/fragments\/[^/]+\/revisions/.test(r.url()))
+  await page.getByRole('button',{name:'应用修改并生成新版本',exact:true}).click()
+  assert((await save).status()===202,'Composition revision failed')
+  await waitReady(2)
+  assert(await page.getByRole('button',{name:'下载重排 PDF',exact:true}).isEnabled(),'Confirmed version should permit PDF download')
+  await page.getByRole('button',{name:'PDF 预览',exact:true}).click()
+  await page.getByTitle('拼谱 PDF 预览').waitFor()
+  await page.getByRole('button',{name:'MusicXML 预览',exact:true}).click()
+  await page.locator('.fragment-result svg').first().waitFor()
+  const download=page.waitForEvent('download')
+  await page.getByRole('button',{name:'下载重排 PDF',exact:true}).click()
+  await(await download).saveAs('output/fragment-validation/Orange-browser.pdf')
+  const xmlDownload=page.waitForEvent('download')
+  await page.getByRole('button',{name:'下载 MusicXML',exact:true}).click()
+  await(await xmlDownload).saveAs('output/fragment-validation/Orange-browser.musicxml')
+  // Invalid source-local ranges fail explicitly, and can be corrected in-place.
+  await page.getByRole('spinbutton',{name:'片段 1 结束小节',exact:true}).fill('99')
+  await page.getByRole('button',{name:'应用修改并生成新版本',exact:true}).click()
+  await page.waitForFunction(()=>document.querySelector('[role=alert]')?.textContent.includes('invalid-measure-range'),undefined,{timeout:60000})
+  await page.getByRole('spinbutton',{name:'片段 1 结束小节',exact:true}).fill('')
+  await page.getByRole('checkbox').check()
+  await page.getByRole('button',{name:'应用修改并生成新版本',exact:true}).click()
+  await waitReady(4)
+  const result=await page.evaluate(async()=>{
+    const record=JSON.parse(localStorage.getItem('pujian:fragments:v1'))[0]
+    const access={headers:{'X-Score-Token':record.token}}
+    const get=async version=>(await fetch(`/api/fragments/${record.id}${version?`?version=${version}`:''}`,access)).json()
+    const latest=await get(),initial=await get(1),confirmed=await get(2)
+    const unauthorized=await fetch(`/api/fragments/${record.id}`,{headers:{'X-Score-Token':'x'.repeat(64)}})
+    const mismatch=await fetch(`/api/fragments/${record.id}/revisions`,{method:'POST',headers:{...access.headers,'Content-Type':'application/json'},body:JSON.stringify({expectedRevision:1,plan:latest.plan})})
+    return {id:record.id,latestVersion:latest.version,result:latest.result,initialConfirmed:initial.plan.reviewConfirmed,confirmedVersion:confirmed.plan.reviewConfirmed,
+      recognitionReused:initial.result.recognitionKey===latest.result.recognitionKey,unauthorizedHttp:unauthorized.status,staleRevisionHttp:mismatch.status}
+  })
+  assert(result.initialConfirmed===false && result.confirmedVersion===true,'Historical review states changed')
+  assert(result.recognitionReused && result.result.measureCount===11 && result.result.noteCount===193,'Real composition changed or recognition was not reused')
+  assert(result.unauthorizedHttp===404 && result.staleRevisionHttp===409,'Access/conflict checks failed')
+  await page.reload()
+  await page.getByRole('button',{name:'Orange · 两张截图真实验证',exact:true}).first().click()
+  await waitReady(4)
+  await page.locator('.fragment-result svg').first().waitFor()
+  await page.screenshot({path:'output/playwright/fragments-desktop.png',fullPage:true})
+  await page.setViewportSize({width:390,height:844})
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Mobile viewport overflows')
+  await page.screenshot({path:'output/playwright/fragments-mobile.png',fullPage:true})
+  assert(!errors.length,errors.join('\n'))
+  return {...result,reorder:true,crop:true,invalidRangeRecovery:true,pdfDownload:true,musicXmlDownload:true,previewTabRoundtrip:true,reopen:true,mobile:true,errors}
+}

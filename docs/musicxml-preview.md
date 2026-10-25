@@ -22,7 +22,7 @@ MusicXML 的音符数量受 OMR 导出限制。例如这份三页样本保存 82
 
 使用已完成识谱的《My Heart Will Go On》三页真实结果，任务 `32f7df19-0dff-4aac-82c6-3ed971899a07`，没有为渲染重新执行 OMR。
 
-- 浏览器验证三页逐页 SVG 渲染、切回 PDF、再次打开预览、缩放和 390×844 小屏布局，脚本 `scripts/osmd-browser-check.js`，页面运行异常为 0。
+- 浏览器验证三页逐页 SVG 渲染、切回 PDF、再次打开预览、缩放和 390×844 小屏布局，脚本 `tests/e2e/osmd-browser-check.js`，页面运行异常为 0。
 - 桌面截图 `output/playwright/musicxml-desktop.png`；小屏截图 `output/playwright/musicxml-mobile.png`。识谱结果的分行、标题和声部会按 XML 重新排版，原 PDF 版式不会被复制。
 - 真实 API：授权页 200、错误访问令牌 404、父文档请求 409、未知产物名称 404。证据 `output/osmd-validation/api-checks.json`。
 - 前端 TypeScript、ESLint 和 Nuxt 生产构建通过；API 通过 Aspire 启动和健康检查。

@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts/poc"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts/runtime"))
 from pdf_geometry import read_page, PdfInputError, choose_pdf_dpi, resolve_pdftoppm
 
 

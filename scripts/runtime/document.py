@@ -9,7 +9,6 @@ import uuid
 
 from pypdf import PdfReader, PdfWriter
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 from pdf_geometry import read_page, PdfInputError, choose_pdf_dpi
 
 parser = argparse.ArgumentParser()

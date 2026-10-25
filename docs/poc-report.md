@@ -78,10 +78,10 @@ Python 是隔离的验证工具。此次没有新增正式 API、Nuxt 应用、�
 一键完整识别、导出、渲染、像素验证命令已成功运行；`-ReuseRecognition` 复用分支也已通过，并检查源图、引擎版本及识别产物的哈希一致性：
 
 ```powershell
-pwsh -NoProfile -File scripts/poc/run.ps1 -Python 'C:/Users/123/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe'
+pwsh -NoProfile -File tests/acceptance/run-poc.ps1 -Python 'C:/Users/123/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe'
 ```
 
-上述 Python 路径仅是本机已验证环境；通用安装与复跑见 [脚本说明](../scripts/poc/README.md)。
+上述 Python 路径仅是本机已验证环境；通用安装与复跑见 [脚本说明](../tests/acceptance/README.md)。
 
 主要证据：
 
@@ -167,16 +167,16 @@ PDF 数字、升降号、八度点使用 RGB `(0,0,0)`；SVG 使用 `#000`；JSO
 ### 复跑与交付
 
 ```powershell
-pwsh -NoProfile -File scripts/poc/run-pdf-matrix.ps1 -Python 'C:/Users/123/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe' -ReuseRecognition
+pwsh -NoProfile -File tests/acceptance/run-pdf-matrix.ps1 -Python 'C:/Users/123/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe' -ReuseRecognition
 ```
 
-去掉 `-ReuseRecognition` 可从原 PDF 重新执行两次 OMR。通用 Python 依赖安装见 [脚本说明](../scripts/poc/README.md)。
+去掉 `-ReuseRecognition` 可从原 PDF 重新执行两次 OMR。通用 Python 依赖安装见 [脚本说明](../tests/acceptance/README.md)。
 
 新增产物：
 
-- `scripts/poc/pdf_geometry.py`：页面读取、正向识别图、DPI 与坐标契约。
-- `scripts/poc/pdf_matrix.py`：9 案例、独立对照、实际文字基线 / 栅格验证、汇总 PDF。
-- `scripts/poc/run-pdf-matrix.ps1`：下载与校验真实谱例、一键执行。
+- `scripts/runtime/pdf_geometry.py`：页面读取、正向识别图、DPI 与坐标契约。
+- `tests/acceptance/pdf_matrix.py`：9 案例、独立对照、实际文字基线 / 栅格验证、汇总 PDF。
+- `tests/acceptance/run-pdf-matrix.ps1`：下载与校验真实谱例、一键执行。
 - `output/poc-pdf/matrix-results.json`：完整量化结果；逐案例还有 `matrix-result.json` 与 `matrix-pipeline.log`。
 - `output/poc-pdf/full-r0/annotated.pdf`：真实原 PDF 黑色标注结果，包含原页脚来源。
 - `output/poc-pdf/crop-r0/annotated.pdf`：裁剪后的黑色标注结果。

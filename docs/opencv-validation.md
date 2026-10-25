@@ -8,9 +8,9 @@ Python 依赖故障已修复，原有真实 PDF 闭环恢复。OpenCV 已接入�
 
 ## 运行环境修复
 
-原 Worker 使用 PATH 中的 Python 3.14.7，缺少 Pillow，在 `pipeline.py` 导入 `PIL` 时失败。现在使用项目独立的 `.tools/poc-python` 虚拟环境，固定依赖集中于 `scripts/poc/requirements.txt`。AppHost 的选择顺序为：`Recognition:Python` 配置 → `MUSICRECOGNITION_PYTHON` → 项目虚拟环境。默认环境不存在时给出准备命令，不再悄悄回退到系统 Python。
+原 Worker 使用 PATH 中的 Python 3.14.7，缺少 Pillow，在 `pipeline.py` 导入 `PIL` 时失败。现在使用项目独立的 `.tools/poc-python` 虚拟环境，固定依赖集中于 `scripts/setup/requirements.txt`。AppHost 的选择顺序为：`Recognition:Python` 配置 → `MUSICRECOGNITION_PYTHON` → 项目虚拟环境。默认环境不存在时给出准备命令，不再悄悄回退到系统 Python。
 
-新增 `scripts/runtime/setup.ps1` 创建环境、安装依赖并调用 prepare 检查。基础依赖与可选 OpenCV 分开声明；`requirements-opencv.txt` 引用基础清单，并固定 `opencv-python-headless==4.13.0.92`，不重复安装 GUI / contrib / OpenCvSharp / OpenCV.js。实际导入 `cv2.__version__` 为 4.13.0，NumPy 继续使用已固定的 2.3.5。`pip check` 通过。
+新增 `scripts/setup/setup.ps1` 创建环境、安装依赖并调用 prepare 检查。基础依赖与可选 OpenCV 分开声明；`requirements-opencv.txt` 引用基础清单，并固定 `opencv-python-headless==4.13.0.92`，不重复安装 GUI / contrib / OpenCvSharp / OpenCV.js。实际导入 `cv2.__version__` 为 4.13.0，NumPy 继续使用已固定的 2.3.5。`pip check` 通过。
 
 在引入 OpenCV **之前**，已完成真实 PDF 的 HTTP 上传、201 个音符、纠错、新修订、下载、旧版本不可变及并发版本冲突检查。任务 `9d0375cd-f3d0-4ef4-96f5-b8fa96b77f4f` 的 Revision 2 经 Poppler 独立渲染：10,460 个变化像素，标注区域外变化、原墨迹覆盖、黑色混合异常、标注重叠均为 0。
 
@@ -81,16 +81,16 @@ Python 依赖故障已修复，原有真实 PDF 闭环恢复。OpenCV 已接入�
 
 ```powershell
 # 基础环境；需要重新选择解释器时传 -Python <bootstrap-python>
-./scripts/runtime/setup.ps1
+./scripts/setup/setup.ps1
 # 安装并检查可选 OpenCV
-./scripts/runtime/setup.ps1 -WithOpenCV
+./scripts/setup/setup.ps1 -WithOpenCV
 aspire start --apphost MusicRecognition.AppHost/MusicRecognition.AppHost.csproj --non-interactive
 aspire wait worker --apphost MusicRecognition.AppHost/MusicRecognition.AppHost.csproj --non-interactive
 aspire describe --apphost MusicRecognition.AppHost/MusicRecognition.AppHost.csproj --non-interactive
 # 用 describe 返回的 API 地址替换示例变量；样谱先按 P0 说明准备。
-.tools/poc-python/Scripts/python.exe scripts/validate-opencv.py --url $apiUrl
-.tools/poc-python/Scripts/python.exe scripts/analyze-opencv.py
-.tools/poc-python/Scripts/python.exe scripts/check-preprocessing-api.py --url $apiUrl
+.tools/poc-python/Scripts/python.exe tools/evaluation/validate-opencv.py --url $apiUrl
+.tools/poc-python/Scripts/python.exe tools/evaluation/analyze-opencv.py
+.tools/poc-python/Scripts/python.exe tests/e2e/check-preprocessing-api.py --url $apiUrl
 .tools/poc-python/Scripts/python.exe -m unittest discover -s tests/python -v
 ```
 

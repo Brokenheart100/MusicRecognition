@@ -2,8 +2,8 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CancelScoreData, CancelScoreErrors, CancelScoreResponses, CreateDocumentExportData, CreateDocumentExportErrors, CreateDocumentExportResponses, CreateRevisionData, CreateRevisionErrors, CreateRevisionResponses, GetDocumentExportData, GetDocumentExportErrors, GetDocumentExportResponses, GetRevisionData, GetRevisionErrors, GetRevisionResponses, GetScoreArtifactData, GetScoreArtifactErrors, GetScoreArtifactResponses, GetScoreData, GetScoreErrors, GetScoreLayoutData, GetScoreLayoutErrors, GetScoreLayoutResponses, GetScoreResponses, ImportScoreData, ImportScoreErrors, ImportScoreResponses, RetryScoreData, RetryScoreErrors, RetryScoreResponses } from './types.gen';
-import { zCancelScoreResponse, zCreateDocumentExportResponse, zCreateRevisionResponse, zGetDocumentExportResponse, zGetRevisionResponse, zGetScoreArtifactResponse, zGetScoreLayoutResponse, zGetScoreResponse, zImportScoreResponse, zRetryScoreResponse } from './zod.gen';
+import type { CancelFragmentProjectData, CancelFragmentProjectErrors, CancelFragmentProjectResponses, CancelScoreData, CancelScoreErrors, CancelScoreResponses, CreateDocumentExportData, CreateDocumentExportErrors, CreateDocumentExportResponses, CreateFragmentRevisionData, CreateFragmentRevisionErrors, CreateFragmentRevisionResponses, CreateRevisionData, CreateRevisionErrors, CreateRevisionResponses, GetDocumentExportData, GetDocumentExportErrors, GetDocumentExportResponses, GetFragmentArtifactData, GetFragmentArtifactErrors, GetFragmentArtifactResponses, GetFragmentImageData, GetFragmentImageErrors, GetFragmentImageResponses, GetFragmentProjectData, GetFragmentProjectErrors, GetFragmentProjectResponses, GetRevisionData, GetRevisionErrors, GetRevisionResponses, GetScoreArtifactData, GetScoreArtifactErrors, GetScoreArtifactResponses, GetScoreData, GetScoreErrors, GetScoreLayoutData, GetScoreLayoutErrors, GetScoreLayoutResponses, GetScoreReflowData, GetScoreReflowErrors, GetScoreReflowResponses, GetScoreResponses, ImportFragmentsData, ImportFragmentsErrors, ImportFragmentsResponses, ImportScoreData, ImportScoreErrors, ImportScoreResponses, RetryFragmentProjectData, RetryFragmentProjectErrors, RetryFragmentProjectResponses, RetryScoreData, RetryScoreErrors, RetryScoreResponses } from './types.gen';
+import { zCancelFragmentProjectResponse, zCancelScoreResponse, zCreateDocumentExportResponse, zCreateFragmentRevisionResponse, zCreateRevisionResponse, zGetDocumentExportResponse, zGetFragmentArtifactResponse, zGetFragmentImageResponse, zGetFragmentProjectResponse, zGetRevisionResponse, zGetScoreArtifactResponse, zGetScoreLayoutResponse, zGetScoreReflowResponse, zGetScoreResponse, zImportFragmentsResponse, zImportScoreResponse, zRetryFragmentProjectResponse, zRetryScoreResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -91,5 +91,68 @@ export const getScoreArtifact = <ThrowOnError extends boolean = false>(options: 
 export const getScoreLayout = <ThrowOnError extends boolean = false>(options: Options<GetScoreLayoutData, ThrowOnError>): RequestResult<GetScoreLayoutResponses, GetScoreLayoutErrors, ThrowOnError> => (options.client ?? client).get<GetScoreLayoutResponses, GetScoreLayoutErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetScoreLayoutResponse.parseAsync(data),
     url: '/api/scores/{id}/layout',
+    ...options
+});
+
+/**
+ * Revision-bound MusicXML and verified note identities for re-engraving.
+ */
+export const getScoreReflow = <ThrowOnError extends boolean = false>(options: Options<GetScoreReflowData, ThrowOnError>): RequestResult<GetScoreReflowResponses, GetScoreReflowErrors, ThrowOnError> => (options.client ?? client).get<GetScoreReflowResponses, GetScoreReflowErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetScoreReflowResponse.parseAsync(data),
+    url: '/api/scores/{id}/reflow',
+    ...options
+});
+
+/**
+ * Create an ordered screenshot composition project (1–12 images, 20 MiB total).
+ */
+export const importFragments = <ThrowOnError extends boolean = false>(options: Options<ImportFragmentsData, ThrowOnError>): RequestResult<ImportFragmentsResponses, ImportFragmentsErrors, ThrowOnError> => (options.client ?? client).post<ImportFragmentsResponses, ImportFragmentsErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    responseValidator: async (data) => await zImportFragmentsResponse.parseAsync(data),
+    url: '/api/fragments',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+export const getFragmentProject = <ThrowOnError extends boolean = false>(options: Options<GetFragmentProjectData, ThrowOnError>): RequestResult<GetFragmentProjectResponses, GetFragmentProjectErrors, ThrowOnError> => (options.client ?? client).get<GetFragmentProjectResponses, GetFragmentProjectErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetFragmentProjectResponse.parseAsync(data),
+    url: '/api/fragments/{id}',
+    ...options
+});
+
+export const createFragmentRevision = <ThrowOnError extends boolean = false>(options: Options<CreateFragmentRevisionData, ThrowOnError>): RequestResult<CreateFragmentRevisionResponses, CreateFragmentRevisionErrors, ThrowOnError> => (options.client ?? client).post<CreateFragmentRevisionResponses, CreateFragmentRevisionErrors, ThrowOnError>({
+    responseValidator: async (data) => await zCreateFragmentRevisionResponse.parseAsync(data),
+    url: '/api/fragments/{id}/revisions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getFragmentArtifact = <ThrowOnError extends boolean = false>(options: Options<GetFragmentArtifactData, ThrowOnError>): RequestResult<GetFragmentArtifactResponses, GetFragmentArtifactErrors, ThrowOnError> => (options.client ?? client).get<GetFragmentArtifactResponses, GetFragmentArtifactErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetFragmentArtifactResponse.parseAsync(data),
+    url: '/api/fragments/{id}/artifacts/{name}',
+    ...options
+});
+
+export const getFragmentImage = <ThrowOnError extends boolean = false>(options: Options<GetFragmentImageData, ThrowOnError>): RequestResult<GetFragmentImageResponses, GetFragmentImageErrors, ThrowOnError> => (options.client ?? client).get<GetFragmentImageResponses, GetFragmentImageErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetFragmentImageResponse.parseAsync(data),
+    url: '/api/fragments/{id}/images/{index}',
+    ...options
+});
+
+export const retryFragmentProject = <ThrowOnError extends boolean = false>(options: Options<RetryFragmentProjectData, ThrowOnError>): RequestResult<RetryFragmentProjectResponses, RetryFragmentProjectErrors, ThrowOnError> => (options.client ?? client).post<RetryFragmentProjectResponses, RetryFragmentProjectErrors, ThrowOnError>({
+    responseValidator: async (data) => await zRetryFragmentProjectResponse.parseAsync(data),
+    url: '/api/fragments/{id}/retry',
+    ...options
+});
+
+export const cancelFragmentProject = <ThrowOnError extends boolean = false>(options: Options<CancelFragmentProjectData, ThrowOnError>): RequestResult<CancelFragmentProjectResponses, CancelFragmentProjectErrors, ThrowOnError> => (options.client ?? client).post<CancelFragmentProjectResponses, CancelFragmentProjectErrors, ThrowOnError>({
+    responseValidator: async (data) => await zCancelFragmentProjectResponse.parseAsync(data),
+    url: '/api/fragments/{id}/cancel',
     ...options
 });

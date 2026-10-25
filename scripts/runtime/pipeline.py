@@ -26,12 +26,12 @@ parser.add_argument("--style", type=Path)
 parser.add_argument("--font", type=Path)
 parser.add_argument("--preprocess", choices=["none", "adaptive"], default="none")
 args = parser.parse_args()
-sys.path.insert(0, str(args.root / "scripts" / "poc"))
+sys.path.insert(0, str(args.root / "scripts" / "runtime"))
 from PIL import Image
 from pdf_geometry import prepare_pdf, read_page, PdfInputError
 from pitch_validation import validate_pitches
 from preprocess import prepare as preprocess, PreprocessingUnavailable, IDENTITY
-from octaves import recover as recover_octaves, apply_to_notes, OctaveRecoveryUnavailable
+from octaves import recover as recover_octaves, apply_to_notes, OctaveRecoveryUnavailable, OctaveEvidenceError
 
 Image.MAX_IMAGE_PIXELS = 20_000_000
 source = args.job / ("source" + args.extension)
@@ -93,8 +93,8 @@ try:
             app = args.root / ".tools" / "audiveris" / "Audiveris"
             classes = args.root / ".tools" / "poc-classes"
             compiled = classes / "musicrecognition" / "poc" / "ExportNotes.class"
-            if not compiled.exists() or compiled.stat().st_mtime < (args.root / "scripts" / "poc" / "ExportNotes.java").stat().st_mtime:
-                raise PipelineError("adapter-not-provisioned", "Compile the Java adapter using scripts/runtime/prepare.ps1 before running the worker")
+            if not compiled.exists() or compiled.stat().st_mtime < (args.root / "scripts" / "runtime" / "ExportNotes.java").stat().st_mtime:
+                raise PipelineError("adapter-not-provisioned", "Compile the Java adapter using scripts/setup/prepare.ps1 before running the worker")
             java = app / "runtime" / "bin" / ("java.exe" if os.name == "nt" else "java")
             common = [java,"-Djava.awt.headless=true","-Dfile.encoding=UTF-8","-Djpackage.app-version=5.11.0",f"-Dmusicrecognition.output={attempt}",
                       "--add-exports=java.desktop/sun.awt.image=ALL-UNNAMED","--enable-native-access=ALL-UNNAMED","-cp",str(classes)+os.pathsep+str(app / "app" / "*"),"Audiveris","-batch"]
@@ -122,7 +122,7 @@ try:
         if not target.exists():
             target.parent.mkdir(exist_ok=True)
             attempt = args.job / ("render-" + uuid.uuid4().hex)
-            command = [sys.executable,args.root / "scripts" / "poc" / "annotate.py","--image",raw / "recognition.png","--omr",raw / "score.omr",
+            command = [sys.executable,args.root / "scripts" / "runtime" / "annotate.py","--image",raw / "recognition.png","--omr",raw / "score.omr",
                        "--mxl",raw / "score.mxl","--notes",raw / "notes-1.json","--output",attempt,"--labels",args.labels,"--font",args.font]
             if args.style: command += ["--style", args.style]
             if (raw / "preprocessing.json").exists(): command += ["--preprocessing", raw / "preprocessing.json"]
@@ -134,6 +134,6 @@ try:
             (attempt / "preview.html").unlink(missing_ok=True)
             attempt.rename(target)
 except Exception as error:
-    code = error.code if isinstance(error, (PipelineError, PdfInputError, OctaveRecoveryUnavailable)) else "preprocessing-unavailable" if isinstance(error, PreprocessingUnavailable) else "invalid-source" if isinstance(error, (ValueError, Image.DecompressionBombError)) else "tool-failed"
+    code = error.code if isinstance(error, (PipelineError, PdfInputError, OctaveRecoveryUnavailable, OctaveEvidenceError)) else "preprocessing-unavailable" if isinstance(error, PreprocessingUnavailable) else "invalid-source" if isinstance(error, (ValueError, Image.DecompressionBombError)) else "tool-failed"
     error_path.write_text(json.dumps({"code":code,"message":str(error)},ensure_ascii=False),encoding="utf-8")
     raise

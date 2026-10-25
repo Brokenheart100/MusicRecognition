@@ -11,9 +11,9 @@ from unittest.mock import patch
 import numpy as np
 from PIL import Image
 
-sys.path[:0] = [str(Path(__file__).resolve().parents[2] / 'scripts' / name) for name in ('poc', 'runtime')]
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts/runtime'))
 from pitch_validation import validate_pitches
-from octaves import recover, apply_to_notes, OctaveRecoveryUnavailable
+from octaves import recover, apply_to_notes, OctaveRecoveryUnavailable, OctaveEvidenceError
 
 
 class PitchValidationTests(unittest.TestCase):
@@ -112,6 +112,44 @@ class PitchValidationTests(unittest.TestCase):
 
 
 class OctaveRecoveryTests(unittest.TestCase):
+    def synthetic_evidence(self, root, staves, line_y=30, hook=False):
+        pixels = np.full((600, 400), 255, np.uint8)
+        for x in range(110, 300, 12): pixels[line_y:line_y+2, x:x+6] = 0
+        if hook: pixels[line_y:line_y+14, 302:304] = 0
+        Image.fromarray(pixels).save(root / 'source.png')
+        data = {'interline': 10, 'octaveShifts': [{'id': 1, 'bounds': [80, line_y-12, 12, 20], 'value': 15}],
+                'staves': [dict(id=i, left=0, right=399, top=[y,y], bottom=[y+40,y+40]) for i,y in enumerate(staves, 1)]}
+        (root / 'notes.json').write_text(json.dumps(data))
+        return root / 'notes.json', root / 'source.png', root / 'evidence.json'
+
+    def test_hookless_header_candidate_is_rejected_with_audit_and_without_native_transposition(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evidence = recover(*self.synthetic_evidence(root, [220]))
+            self.assertEqual(evidence['repairs'], [])
+            self.assertEqual(evidence['rejected'][0]['reason'], 'header-outside-staff-region')
+            data = {'warnings': [], 'notes': [dict(staff=1, chordX=150, octaveShift=2, writtenOctave=4, octave=6, interId=1)]}
+            note = apply_to_notes(data, evidence)['notes'][0]
+            self.assertEqual(note['octave'], 4)
+            self.assertEqual(note['nativeOctaveShift'], 2)
+            self.assertIn('header-outside-staff-region', data['warnings'][0])
+
+    def test_far_real_hook_remains_a_failure_and_preserves_diagnostics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            arguments = self.synthetic_evidence(root, [220], hook=True)
+            with self.assertRaises(OctaveEvidenceError): recover(*arguments)
+            evidence = json.loads(arguments[2].read_text())
+            self.assertTrue(evidence['unresolved'][0]['hasHook'])
+            self.assertEqual(evidence['unresolved'][0]['reason'], 'staff-too-far')
+
+    def test_ambiguous_line_between_systems_is_not_discarded_as_a_header(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            arguments = self.synthetic_evidence(root, [40, 500], line_y=300)
+            with self.assertRaises(OctaveEvidenceError): recover(*arguments)
+            self.assertEqual(json.loads(arguments[2].read_text())['unresolved'][0]['reason'], 'staff-too-far')
+
     def test_opencv_required_only_when_an_octave_candidate_exists(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

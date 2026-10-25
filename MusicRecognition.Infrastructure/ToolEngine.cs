@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
+using CliWrap;
 using Microsoft.Extensions.Logging;
 using MusicRecognition.Application;
 using MusicRecognition.Domain;
@@ -13,75 +15,93 @@ public sealed class ToolFailure(string code, string message, string? diagnosticR
     public string? DiagnosticReason { get; } = diagnosticReason;
 }
 
-public sealed class ToolEngine(RecognitionOptions options, IScoreStorage files, ILogger<ToolEngine> logger) : IRecognitionEngine
+public sealed class ToolEngine(RecognitionOptions options, IScoreStorage files, ILogger<ToolEngine> logger, IScoreRepository repository) : IRecognitionEngine, IReflowEngine
 {
-    private async Task Run(string operation, Guid id, string[] args, CancellationToken ct, string script = "pipeline.py")
+    internal async Task Run(string operation, Guid id, string[] args, CancellationToken ct, string script = "pipeline.py", string? jobDirectory = null)
     {
-        var dir = files.JobDirectory(id); var logPath = Path.Combine(dir, $"{operation}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}.log");
+        var job = await repository.FindJobAsync(id, ct);
+        var context = await ScoreDiagnostics.ResolveAsync(repository, job ?? new ScoreJob { Id = id }, ct);
+        using var scope = logger.BeginScope(context.Scope());
+        var name = context.ScoreName;
+        var operationName = ScoreDiagnostics.Operation(operation);
+        var dir = jobDirectory ?? files.JobDirectory(id); var logPath = Path.Combine(dir, $"{operation}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}.log");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(options.TimeoutSeconds));
-        var start = new ProcessStartInfo(options.Python) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = options.RepositoryRoot, CreateNoWindow = true };
-        start.ArgumentList.Add("-u"); start.ArgumentList.Add(Path.Combine(options.RepositoryRoot, "scripts", "runtime", script));
-        start.ArgumentList.Add(operation); start.ArgumentList.Add("--root"); start.ArgumentList.Add(options.RepositoryRoot);
-        start.ArgumentList.Add("--job"); start.ArgumentList.Add(dir);
-        foreach (var arg in args) start.ArgumentList.Add(arg);
-        start.Environment["PYTHONIOENCODING"] = "utf-8";
-        start.Environment["MUSICRECOGNITION_PDFTOPPM"] = options.PdftoppmPath;
-        using var process = new Process { StartInfo = start };
+        string[] arguments = ["-u", Path.Combine(options.RepositoryRoot, "scripts", "runtime", script),
+            operation, "--root", options.RepositoryRoot, "--job", dir, .. args];
         await using var log = new StreamWriter(logPath);
         log.AutoFlush = true;
         using var logGate = new SemaphoreSlim(1); long lines = 0;
         var stderrTail = new Queue<string>();
-        async Task Drain(StreamReader reader, bool isError = false)
+        async Task WriteLine(string line, bool isError = false)
         {
-            while (await reader.ReadLineAsync() is { } line)
-            {
-                var bounded = line[..Math.Min(line.Length, 4000)];
-                if (isError) { if (stderrTail.Count == 8) stderrTail.Dequeue(); stderrTail.Enqueue(bounded); }
-                if (Interlocked.Increment(ref lines) > 10000) continue;
-                await logGate.WaitAsync();
-                try { await log.WriteLineAsync(bounded); } finally { logGate.Release(); }
-            }
+            var bounded = line[..Math.Min(line.Length, 4000)];
+            if (isError) { if (stderrTail.Count == 8) stderrTail.Dequeue(); stderrTail.Enqueue(bounded); }
+            if (Interlocked.Increment(ref lines) > 10000) return;
+            await logGate.WaitAsync();
+            try { await log.WriteLineAsync(bounded); } finally { logGate.Release(); }
         }
+        var command = Cli.Wrap(options.Python)
+            .WithArguments(arguments)
+            .WithWorkingDirectory(options.RepositoryRoot)
+            .WithEnvironmentVariables(env => env
+                .Set("PYTHONIOENCODING", "utf-8")
+                .Set("MUSICRECOGNITION_PDFTOPPM", options.PdftoppmPath))
+            .WithStandardOutputPipe(PipeTarget.ToDelegate(line => WriteLine(line), Encoding.UTF8))
+            .WithStandardErrorPipe(PipeTarget.ToDelegate(line => WriteLine(line, isError: true), Encoding.UTF8))
+            // Nonzero exits are translated below using the protected diagnostic report.
+            .WithValidation(CommandResultValidation.None);
         var stopwatch = Stopwatch.StartNew();
+        using var activity = ProcessingTelemetry.Activities.StartActivity("score." + operation);
+        activity?.SetTag("operation", operation);
+        var outcome = "error"; long peakRootMemory = 0;
         using var progressStop = new CancellationTokenSource();
-        async Task ReportProgress()
+        async Task ReportProgress(int processId)
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(20));
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            var ticks = 0;
             while (await timer.WaitForNextTickAsync(progressStop.Token))
-                logger.LogInformation("⏳ Score tool operation still running {ScoreId} operation {Operation} elapsedSeconds {ElapsedSeconds} outputLines {OutputLines}",
-                    id, operation, (long)stopwatch.Elapsed.TotalSeconds, Interlocked.Read(ref lines));
+            {
+                try
+                {
+                    using var process = Process.GetProcessById(processId);
+                    peakRootMemory = Math.Max(peakRootMemory, process.WorkingSet64);
+                }
+                catch (Exception e) when (e is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { }
+                if (++ticks % 20 != 0) continue;
+                logger.LogInformation("⏳ {ScoreName}：{OperationName}仍在运行，已用 {ElapsedSeconds} 秒，输出 {OutputLines} 行（任务 {ScoreId}，操作 {Operation}）",
+                    name, operationName, (long)stopwatch.Elapsed.TotalSeconds, Interlocked.Read(ref lines), id, operation);
+            }
         }
         Task? progress = null;
         try
         {
-            logger.LogDebug("🔧 Launching {Script} operation {Operation} for {ScoreId} ({ArgumentCount} arguments)", script, operation, id, start.ArgumentList.Count);
+            logger.LogInformation("🔧 {ScoreName}：启动脚本 {Script}，操作 {OperationName}，参数数 {ArgumentCount}（任务 {ScoreId}，操作 {Operation}）", name, script, operationName, arguments.Length, id, operation);
             // A failure before Python imports/initialization must not inherit an earlier attempt's report.
             File.Delete(Path.Combine(dir, "error.json"));
-            process.Start();
-            logger.LogInformation("▶️ Score tool operation started {ScoreId} operation {Operation} processId {ProcessId} timeoutSeconds {TimeoutSeconds}", id, operation, process.Id, options.TimeoutSeconds);
-            progress = ReportProgress();
-            var stdout = Drain(process.StandardOutput); var stderr = Drain(process.StandardError, isError: true);
-            try { await process.WaitForExitAsync(timeout.Token); }
-            finally { if (!process.HasExited) process.Kill(entireProcessTree: true); await process.WaitForExitAsync(CancellationToken.None); await Task.WhenAll(stdout, stderr); }
-            if (process.ExitCode != 0)
+            var result = await ToolCommand.ExecuteAsync(command, timeout.Token, logger, processId =>
+            {
+                logger.LogInformation("▶️ {ScoreName}：开始{OperationName}，进程 {ProcessId}，超时 {TimeoutSeconds} 秒（任务 {ScoreId}，操作 {Operation}）", name, operationName, processId, options.TimeoutSeconds, id, operation);
+                progress = ReportProgress(processId);
+            });
+            if (result.ExitCode != 0)
             {
                 var errorFile = Path.Combine(dir, "error.json");
                 var code = "tool-failed";
                 var stderrSummary = string.Join("\n", stderrTail);
                 if (stderrSummary.Length > 4000) stderrSummary = stderrSummary[^4000..];
-                var reason = string.IsNullOrWhiteSpace(stderrSummary) ? "Tool exited without a diagnostic report or stderr output." : stderrSummary;
+                var reason = string.IsNullOrWhiteSpace(stderrSummary) ? "工具退出时未提供诊断报告或标准错误输出。" : stderrSummary;
                 string? reportIssue = null;
                 try
                 {
                     if (File.Exists(errorFile))
                     {
-                        if (new FileInfo(errorFile).Length > 65536) reportIssue = "Diagnostic report exceeded 64 KiB; using stderr.";
+                        if (new FileInfo(errorFile).Length > 65536) reportIssue = "诊断报告超过 64 KiB，改用标准错误输出。";
                         else
                         {
                             using var report = JsonDocument.Parse(await File.ReadAllTextAsync(errorFile, ct));
                             var root = report.RootElement;
-                            if (root.ValueKind != JsonValueKind.Object) reportIssue = "Diagnostic report was not an object; using stderr.";
+                            if (root.ValueKind != JsonValueKind.Object) reportIssue = "诊断报告格式无效，改用标准错误输出。";
                             else
                             {
                                 if (root.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(c.GetString())) code = c.GetString()![..Math.Min(c.GetString()!.Length, 128)];
@@ -94,29 +114,39 @@ public sealed class ToolEngine(RecognitionOptions options, IScoreStorage files, 
                 reason = reason[..Math.Min(reason.Length, 4000)];
                 var message = code switch
                 {
-                    "unsupported-page-count" => "PDF must contain between 1 and 30 pages.",
-                    "encrypted-pdf" => "Password-protected PDFs are not supported. Import an unencrypted PDF.",
-                    "pdf-renderer-unavailable" => "The server PDF renderer is unavailable. Contact the administrator using this score ID.",
+                    "unsupported-page-count" => "PDF 页数必须为 1 至 30 页。",
+                    "encrypted-pdf" => "暂不支持加密 PDF，请上传未加密的文件。",
+                    "pdf-renderer-unavailable" => "服务器 PDF 渲染工具不可用，请向管理员提供任务 ID。",
                     "pitch-consistency-failed" => "识谱结果的音高、声部或符头坐标一致性校验未通过，尚未生成标注。请使用任务 ID 查看具体诊断日志。",
-                    _ => $"{operation} failed; consult the protected server logs for score {id}."
+                    "octave-evidence-ambiguous" => "无法可靠确定八度线的范围或所属谱表，尚未生成标注。请使用任务 ID 查看八度线诊断记录。",
+                    "composition-dependency-missing" => "拼谱依赖尚未准备，请运行项目的 music21 / MuseScore 准备脚本。",
+                    "fragment-boundaries-unavailable" => "片段与小节边界未能可靠对应，请检查裁剪是否保留完整谱表与小节。",
+                    "invalid-measure-range" => "保留小节范围超出了本片段识别结果，请调整范围。",
+                    "composition-note-loss" => "拼谱解析前后的音符数不一致，已停止导出，请查看诊断。",
+                    "composition-engraver-note-loss" => "记谱引擎输出的音高或谱表归属与 MusicXML 不一致，已停止发布 PDF。",
+                    "composition-engraver-events-changed" => "记谱引擎输出的音符起始时刻或时值与 MusicXML 不一致，已停止发布 PDF。",
+                    "fragment-unsupported-layout" => "首版片段拼谱只支持同一钢琴编配的一个或两个谱表。",
+                    _ => $"{operationName}失败，请使用任务 ID {id} 查看服务器诊断日志。"
                 };
-                logger.LogWarning("❌ Score tool operation exited with code {ExitCode} {ScoreId} operation {Operation} errorCode {ErrorCode} failureReason {FailureReason} diagnosticLog {DiagnosticLog} stderrTail {StderrTail} reportIssue {DiagnosticReportIssue}",
-                    process.ExitCode, id, operation, code, reason, logPath, stderrSummary, reportIssue);
+                logger.LogWarning("❌ {ScoreName}：{OperationName}失败，退出码 {ExitCode}，错误码 {ErrorCode}，原因 {FailureReason}；诊断日志 {DiagnosticLog}；标准错误末尾 {StderrTail}；诊断报告问题 {DiagnosticReportIssue}（任务 {ScoreId}，操作 {Operation}）",
+                    name, operationName, result.ExitCode, code, reason, logPath, stderrSummary, reportIssue, id, operation);
                 throw new ToolFailure(code, message, reason);
             }
-            logger.LogInformation("⏹️ Score tool operation completed {ScoreId} operation {Operation} exitCode {ExitCode} elapsedMs {ElapsedMs} outputLines {OutputLines}",
-                id, operation, process.ExitCode, stopwatch.ElapsedMilliseconds, Interlocked.Read(ref lines));
+            logger.LogInformation("⏹️ {ScoreName}：{OperationName}完成，用时 {ElapsedMs} 毫秒，退出码 {ExitCode}，输出 {OutputLines} 行（任务 {ScoreId}，操作 {Operation}）",
+                name, operationName, stopwatch.ElapsedMilliseconds, result.ExitCode, Interlocked.Read(ref lines), id, operation);
+            outcome = "success";
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            logger.LogError("⏱️ Score tool operation timed out {ScoreId} operation {Operation} timeoutSeconds {TimeoutSeconds} elapsedMs {ElapsedMs} outputLines {OutputLines} diagnosticLog {DiagnosticLog}",
-                id, operation, options.TimeoutSeconds, stopwatch.ElapsedMilliseconds, Interlocked.Read(ref lines), logPath);
-            throw new ToolFailure("processing-timeout", $"{operation} exceeded {options.TimeoutSeconds} seconds.");
+            outcome = "timeout";
+            logger.LogError("⏱️ {ScoreName}：{OperationName}超时，限制 {TimeoutSeconds} 秒，已用 {ElapsedMs} 毫秒，输出 {OutputLines} 行；诊断日志 {DiagnosticLog}（任务 {ScoreId}，操作 {Operation}）",
+                name, operationName, options.TimeoutSeconds, stopwatch.ElapsedMilliseconds, Interlocked.Read(ref lines), logPath, id, operation);
+            throw new ToolFailure("processing-timeout", $"{operationName}超过 {options.TimeoutSeconds} 秒，处理已终止。");
         }
         catch (Exception e) when (e is not OperationCanceledException and not ToolFailure)
         {
-            logger.LogError(e, "💥 Score tool operation failed {ScoreId} operation {Operation} elapsedMs {ElapsedMs} outputLines {OutputLines}",
-                id, operation, stopwatch.ElapsedMilliseconds, Interlocked.Read(ref lines));
+            logger.LogError(e, "💥 {ScoreName}：{OperationName}异常，用时 {ElapsedMs} 毫秒，输出 {OutputLines} 行（任务 {ScoreId}，操作 {Operation}）",
+                name, operationName, stopwatch.ElapsedMilliseconds, Interlocked.Read(ref lines), id, operation);
             throw;
         }
         finally
@@ -124,6 +154,10 @@ public sealed class ToolEngine(RecognitionOptions options, IScoreStorage files, 
             progressStop.Cancel();
             if (progress is not null)
                 try { await progress; } catch (OperationCanceledException) { }
+            if (ct.IsCancellationRequested) outcome = "cancelled";
+            ProcessingTelemetry.Record(operation, outcome, stopwatch.Elapsed, peakRootMemory);
+            activity?.SetTag("outcome", outcome);
+            if (outcome is "error" or "timeout") activity?.SetStatus(ActivityStatusCode.Error);
         }
     }
     public async Task<PreparedDocument> PrepareDocumentAsync(Guid id, string extension, CancellationToken ct)
@@ -153,7 +187,7 @@ public sealed class ToolEngine(RecognitionOptions options, IScoreStorage files, 
         }).ToArray();
         if (notes.Length == 0 || notes.Length != root.GetProperty("headCount").GetInt32()) throw new ToolFailure("invalid-note-count", "No complete note set was produced.");
         return new(root.GetProperty("width").GetInt32(), root.GetProperty("height").GetInt32(), root.GetProperty("interline").GetInt32(), root.GetProperty("engine").GetString()!, NumberingOptions.FixedC, notes,
-            root.GetProperty("warnings").EnumerateArray().Select(v => v.GetString()!).ToArray());
+            root.GetProperty("warnings").EnumerateArray().Select(v => v.GetString()!).ToArray(), AnnotationStyle.Default);
     }
     public async Task RenderAsync(Guid id, int version, string extension, ScoreSnapshot snapshot, CancellationToken ct)
     {
@@ -164,5 +198,21 @@ public sealed class ToolEngine(RecognitionOptions options, IScoreStorage files, 
         var labels = Path.Combine(files.JobDirectory(id), $"labels-{version}.json");
         await File.WriteAllTextAsync(labels, ScoreJson.Write(snapshot.Notes.ToDictionary(n => n.InterId.ToString(), n => new { noteId = n.Id, pitch = n.Pitch, placement = n.Placement, degree = n.Label.Degree, alteration = n.Label.Alteration, octaveDots = n.Label.OctaveDots, style = n.Style })), ct);
         await Run("render", id, ["--extension", extension, "--version", version.ToString(), "--labels", labels, "--font", options.Font, "--style", styleFile], ct);
+    }
+    public async Task<ReflowView> PrepareAsync(Guid id, int version, ScoreSnapshot snapshot, CancellationToken ct)
+    {
+        var source = files.JobDirectory(id);
+        var cache = Path.Combine(source, "revisions", version.ToString(), "reflow-v1.json");
+        if (File.Exists(cache)) return ScoreJson.Read<ReflowView>(await File.ReadAllTextAsync(cache, ct));
+        // Separate diagnostics and inputs prevent concurrent preview/render requests
+        // from overwriting each other's error reports. Original revisions stay intact.
+        var work = Path.Combine(source, "reflow", $"{version}-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(work);
+        await File.WriteAllTextAsync(Path.Combine(work, "snapshot.json"), ScoreJson.Write(snapshot), ct);
+        await Run("reflow", id, ["--source-job", source], ct, "reflow.py", work);
+        var result = Path.Combine(work, "result.json");
+        var view = ScoreJson.Read<ReflowView>(await File.ReadAllTextAsync(result, ct));
+        File.Move(result, cache, true);
+        return view;
     }
 }

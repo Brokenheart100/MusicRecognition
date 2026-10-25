@@ -213,9 +213,30 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function placement(id: string) { return draft.value.placements[id] ?? notes.value.find(n => n.id === id)?.placement ?? null }
   function correct(id: string, value: Pitch) { change(d => { d.pitches[id] = clone(value) }) }
   function position(id: string, x: number, y: number) {
-    change(d => { d.placements[id] = { hidden: false, x: Math.max(2, Math.min((revision.value?.score.width ?? 3) - 3, Math.round(x))), y: Math.max(2, Math.min((revision.value?.score.height ?? 3) - 3, Math.round(y))) } })
+    positionMany([{ id, x: Math.round(x), y: Math.round(y) }])
+  }
+  function positionMany(values: { id: string; x: number; y: number }[]) {
+    if (!values.length || values.some(value => !Number.isFinite(value.x) || !Number.isFinite(value.y))) return
+    const ids = new Set(notes.value.map(note => note.id))
+    change(d => {
+      for (const value of values) {
+        if (!ids.has(value.id)) continue
+        d.placements[value.id] = { hidden: false,
+          x: Math.max(2, Math.min((revision.value?.score.width ?? 3) - 3, value.x)),
+          y: Math.max(2, Math.min((revision.value?.score.height ?? 3) - 3, value.y)) }
+      }
+    })
   }
   function hide(id: string) { change(d => { d.placements[id] = { ...(placement(id) ?? { x: null, y: null }), hidden: !placement(id)?.hidden } }) }
+  function hideMany(ids: string[]) {
+    const known = new Set(notes.value.map(note => note.id))
+    const targets = [...new Set(ids)].filter(id => known.has(id))
+    if (!targets.length) return
+    const hidden = !targets.every(id => placement(id)?.hidden)
+    change(d => {
+      for (const id of targets) d.placements[id] = { ...(placement(id) ?? { x: null, y: null }), hidden }
+    })
+  }
   function automatic(id: string) { change(d => { d.placements[id] = { hidden: false, x: null, y: null } }) }
   function numbering(value: Numbering) { change(d => { d.numbering = clone(value) }) }
   function annotationStyle(value: AnnotationStyle) { change(d => { d.annotationStyle = clone(value) }) }
@@ -248,7 +269,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
   function undo() { if (editable.value) history.undo() }
   function redo() { if (editable.value) history.redo() }
-  async function save() {
+  async function save(recalculate = false) {
     if (!active.value || !currentJobId.value || !revision.value || !editable.value) {
       console.info('[save] skipped:', { active: !!active.value, job: !!currentJobId.value, revision: !!revision.value, editable: editable.value, historical: historical.value, exporting: exporting.value, saving: saving.value })
       return
@@ -256,7 +277,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     saving.value = true; error.value = ''; const ticket = epoch
     const oldDraftKey = draftKey()
     try {
-      if (!dirty.value) { console.info('[save] skipped: nothing to save'); return }
+      if (!dirty.value && !recalculate) { console.info('[save] skipped: nothing to save'); return }
       const id = currentJobId.value
       const saved = revision.value
       // Overrides present in the draft are written; ones removed from the draft are cleared with null.
@@ -322,9 +343,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function dispose() { ++epoch }
   return {
     recent, active, job, documentJob, pageNumber, documentExport, multiPage, pages, revision, annotations, source, selectedId, draft, canUndo, canRedo, uploading, enhanceScan, saving, error, ready,
-    currentJobId, musicXml: server.musicXml,
+    currentJobId, musicXml: server.musicXml, reflow: server.reflow,
     notes, selected, selectedNotes, selection, historical, dirty, processing, exporting, editable, pending, hiddenCount,
-    init, open, upload, select, toggle, selectRegion, clearSelection, styleOf, styleOverridden, styleTargets, setStyle, resetStyle, example, selectPage, pitch, placement, correct, position, hide, automatic, numbering, annotationStyle, undo, redo, save, showVersion, download, exportDocument, downloadDocument, command, home, forget, dispose, poll
+    init, open, upload, select, toggle, selectRegion, clearSelection, styleOf, styleOverridden, styleTargets, setStyle, resetStyle, example, selectPage, pitch, placement, correct, position, positionMany, hide, hideMany, automatic, numbering, annotationStyle, undo, redo, save, showVersion, download, exportDocument, downloadDocument, command, home, forget, dispose, poll
   }
 })
 

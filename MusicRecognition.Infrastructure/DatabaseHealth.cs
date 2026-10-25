@@ -10,9 +10,9 @@ public sealed class DatabaseHealth(IServiceScopeFactory scopes, ILogger<Database
     {
         await using var scope = scopes.CreateAsyncScope();
         var reachable = await scope.ServiceProvider.GetRequiredService<ScoreDb>().Database.CanConnectAsync(cancellationToken);
-        if (!reachable) logger.LogDebug("🩺 Recognition database health check failed: cannot connect");
+        if (!reachable) logger.LogInformation("🩺 识谱数据库健康检查失败：无法连接");
         return reachable
             ? HealthCheckResult.Healthy()
-            : HealthCheckResult.Unhealthy("Recognition database is unavailable.");
+            : HealthCheckResult.Unhealthy("识谱数据库不可用。");
     }
 }

@@ -91,13 +91,13 @@ npm run lint
 npm run build
 ```
 
-真实浏览器新上传同一 PDF，待六页排版就绪，使用 `scripts/p3-query-browser-check.js` 在已打开的 Playwright CLI 会话执行：该脚本要求新任务各页起始 v1，逐页检查后保存第 1 页 v2、导出并下载。独立 SDK 收集脚本从仅本地的 access JSON（id / token）读取凭据：
+真实浏览器新上传同一 PDF，待六页排版就绪，使用 `tests/e2e/p3-query-browser-check.js` 在已打开的 Playwright CLI 会话执行：该脚本要求新任务各页起始 v1，逐页检查后保存第 1 页 v2、导出并下载。独立 SDK 收集脚本从仅本地的 access JSON（id / token）读取凭据：
 
 ```powershell
 # 在 MusicRecognition.Web 中；不要输出 private access 文件内容。
-npx tsx scripts/check-live-sdk.ts http://localhost:<API端口> ../tmp/p3-query-access.json ../output/p3-query-validation
+npx tsx tests/e2e/check-live-sdk.ts http://localhost:<API端口> ../tmp/p3-query-access.json ../output/p3-query-validation
 # 在仓库根目录中：
-.tools/poc-python/Scripts/python.exe scripts/verify-p3-export.py --source output/backend/bf1b0214d36046e0b95d62992e71ee4c/source.pdf --pdf output/pdf/p3-query-six-page-annotated.pdf --evidence output/p3-query-validation
+.tools/poc-python/Scripts/python.exe tests/acceptance/verify-p3-export.py --source output/backend/bf1b0214d36046e0b95d62992e71ee4c/source.pdf --pdf output/pdf/p3-query-six-page-annotated.pdf --evidence output/p3-query-validation
 ```
 
 实现依据：[hey-api Zod](https://heyapi.dev/docs/openapi/typescript/plugins/zod)、[TanStack 生成插件](https://heyapi.dev/docs/openapi/typescript/plugins/tanstack-query)、[TanStack Vue Query SSR](https://tanstack.com/query/latest/docs/framework/vue/guides/ssr)。

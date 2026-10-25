@@ -12,16 +12,20 @@ class OctaveRecoveryUnavailable(RuntimeError):
     code = 'octave-recovery-unavailable'
 
 
+class OctaveEvidenceError(RuntimeError):
+    code = 'octave-evidence-ambiguous'
+
+
 def recover(notes_path: Path, image_path: Path, output_path: Path):
     data = json.loads(notes_path.read_text(encoding="utf-8"))
-    result = {"algorithm": "opencv-dashed-octaves-v1", "interline": data["interline"],
+    result = {"algorithm": "opencv-dashed-octaves-v2", "interline": data["interline"],
         "sourceRasterSha256": hashlib.sha256(image_path.read_bytes()).hexdigest(), "repairs": [], "rejected": []}
     candidates = data.get("octaveShifts", [])
     if candidates:
         try:
             import cv2
         except ImportError as error:
-            raise OctaveRecoveryUnavailable('Install scripts/poc/requirements-opencv.txt to recover octave lines') from error
+            raise OctaveRecoveryUnavailable('Install scripts/setup/requirements-opencv.txt to recover octave lines') from error
         import numpy as np
         image = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
         if image is None:
@@ -79,10 +83,27 @@ def recover(notes_path: Path, image_path: Path, output_path: Path):
                 if line_y > bottom+il*.2 and hook_direction <= 0:
                     targets.append((line_y-bottom, staff, "BASSA"))
             if not targets:
-                raise ValueError(f"Octave span {candidate['id']} has no compatible staff")
+                result['unresolved'] = [{'id': candidate['id'], 'reason': 'no-compatible-staff', 'bounds': candidate['bounds'], 'lineY': int(line_y)}]
+                output_path.write_text(json.dumps(result, indent=2), encoding='utf-8')
+                raise OctaveEvidenceError(f"八度线候选 {candidate['id']} 无法确定所属谱表，尚未生成标注。")
             distance, staff, kind = min(targets, key=lambda item: item[0])
             if distance > il * 12:
-                raise ValueError(f"Octave span {candidate['id']} is too far from a staff")
+                # Header text can contain numeral-like glyphs and many short ink
+                # runs. Such a candidate is not a verified octave span. Reject
+                # only the far-above-first-staff, hookless header case; retain
+                # strict failure for other ambiguous lines and real end hooks.
+                first_top = min(min(s['top']) for s in data['staves'])
+                if hook_direction == 0 and y+h <= first_top-il*12 and line_y < first_top-il*12:
+                    result['rejected'].append({'id': candidate['id'], 'reason': 'header-outside-staff-region',
+                        'bounds': candidate['bounds'], 'lineY': int(line_y), 'nearestStaff': staff['id'],
+                        'staffDistance': float(distance), 'maximumStaffDistance': il*12,
+                        'hasHook': False, 'dashCount': int(count), 'inkDensity': round(density, 4)})
+                    continue
+                result['unresolved'] = [{'id': candidate['id'], 'reason': 'staff-too-far', 'bounds': candidate['bounds'],
+                    'lineY': int(line_y), 'nearestStaff': staff['id'], 'staffDistance': float(distance),
+                    'maximumStaffDistance': il*12, 'hasHook': hook_direction != 0}]
+                output_path.write_text(json.dumps(result, indent=2), encoding='utf-8')
+                raise OctaveEvidenceError(f"八度线候选 {candidate['id']} 距谱表 {distance:.1f} 像素，超过可验证范围 {il*12} 像素，需人工核对。")
             result["repairs"].append({"id": candidate["id"], "staff": staff["id"], "kind": kind,
                 "x1": x, "x2": int(min(end, staff["right"])), "y": int(line_y),
                 "hasHook": hook_direction != 0, "value": candidate["value"],
@@ -101,7 +122,8 @@ def apply_to_notes(data, evidence):
             raise ValueError(f"Conflicting octave spans for head {note['interId']}")
         note["octaveShift"] = next(iter(shifts), 0)
         note["octave"] = note["writtenOctave"] + note["octaveShift"]
-    data["warnings"] += [f"octave-candidate-without-line:{item['id']}" for item in evidence["rejected"]]
+    data["warnings"] += [f"octave-candidate-without-line:{item['id']}" if item['reason'] == 'no-dashed-line-evidence'
+                         else f"octave-candidate-rejected:{item['id']}:{item['reason']}" for item in evidence["rejected"]]
     data["octaveRepair"] = evidence
     return data
 

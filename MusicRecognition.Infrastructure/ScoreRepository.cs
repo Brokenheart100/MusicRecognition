@@ -22,16 +22,16 @@ public sealed class ScoreRepository(ScoreDb db, ILogger<ScoreRepository> logger)
         try
         {
             await db.SaveChangesAsync(ct);
-            logger.LogDebug("💾 Persisted score state changes");
+            logger.LogInformation("💾 乐谱任务状态已保存");
         }
         catch (DbUpdateConcurrencyException)
         {
-            logger.LogWarning("⚠️ Concurrency conflict while saving score state; the caller must reload");
+            logger.LogWarning("⚠️ 保存乐谱状态时发生并发冲突，请重新加载后重试");
             throw new RequestFailure(409, "concurrency-conflict", "State changed. Reload before retrying.");
         }
         catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: "23505" } p)
         {
-            logger.LogWarning(e, "⚠️ Duplicate key while saving score state: constraint {Constraint}", p.ConstraintName);
+            logger.LogWarning(e, "⚠️ 保存乐谱状态时遇到重复记录：约束 {Constraint}", p.ConstraintName);
             throw new RequestFailure(409, p.ConstraintName == "IX_Jobs_RequestHash" ? "duplicate-request" : "revision-conflict", "This request or revision was already saved.");
         }
     }

@@ -88,14 +88,14 @@ C# 生成 `NumberedLabel(Degree, Alteration, OctaveDots)`。Python 正式适配�
 
 ## 本地启动与验证
 
-本次运行环境：Windows，.NET SDK 10.0.402，Docker，Aspire SDK 13.6.2，Audiveris 5.11.0。Python 依赖与工具固定流程见 [P0 复跑](../scripts/poc/README.md)。先完成一次 P0 工具准备，再使用下面的运行时准备；Worker 不会在处理用户文件时下载 JDK / Audiveris。
+本次运行环境：Windows，.NET SDK 10.0.402，Docker，Aspire SDK 13.6.2，Audiveris 5.11.0。Python 依赖与工具固定流程见 [P0 复跑](../tests/acceptance/README.md)。先完成一次 P0 工具准备，再使用下面的运行时准备；Worker 不会在处理用户文件时下载 JDK / Audiveris。
 
 ```powershell
 # 创建项目独立环境、安装固定依赖并检查工具。AppHost 默认选择 .tools/poc-python。
-./scripts/runtime/setup.ps1
+./scripts/setup/setup.ps1
 # 首次准备 Poppler 时可显式指定便携分发包的 Library 目录；完整 bin / DLL / share 会复制到项目 .tools/poppler。
-# ./scripts/runtime/setup.ps1 -PopplerDirectory C:/tools/poppler/Library
-# 可选实验性光照预处理：./scripts/runtime/setup.ps1 -WithOpenCV
+# ./scripts/setup/setup.ps1 -PopplerDirectory C:/tools/poppler/Library
+# 可选实验性光照预处理：./scripts/setup/setup.ps1 -WithOpenCV
 # 需要其他解释器时，可显式配置 Recognition:Python 或 MUSICRECOGNITION_PYTHON。
 # Worker 默认使用 .tools/poppler/bin/pdftoppm.exe；外部安装可用 Recognition__Pdftoppm 覆盖为绝对路径。
 # Worker 启动先检查 Python 包、Java / 适配器、字体，并真实渲染小 PDF；失败时不启动任务消费。
@@ -111,14 +111,14 @@ aspire describe --apphost MusicRecognition.AppHost/MusicRecognition.AppHost.cspr
 
 ```powershell
 # 用不同证据文件创建新任务，不同测试目录内保存各版下载件。
-& $env:MUSICRECOGNITION_PYTHON scripts/test-p1.py flow --url $apiUrl --file output/poc-pdf/input/Minuet-xpose-a4.pdf --evidence output/p1/my-run/flow.json
-& $env:MUSICRECOGNITION_PYTHON scripts/test-p1.py negative --url $apiUrl --evidence output/p1/my-run/flow.json
-& $env:MUSICRECOGNITION_PYTHON scripts/test-p1.py keys --url $apiUrl --evidence output/p1/my-run/flow.json
+& $env:MUSICRECOGNITION_PYTHON tests/e2e/test-p1.py flow --url $apiUrl --file output/poc-pdf/input/Minuet-xpose-a4.pdf --evidence output/p1/my-run/flow.json
+& $env:MUSICRECOGNITION_PYTHON tests/e2e/test-p1.py negative --url $apiUrl --evidence output/p1/my-run/flow.json
+& $env:MUSICRECOGNITION_PYTHON tests/e2e/test-p1.py keys --url $apiUrl --evidence output/p1/my-run/flow.json
 # 真实工具 10 秒超时测试；不会连接数据库。
 $env:MUSICRECOGNITION_TEST_ROOT = (Get-Location).Path
 dotnet test tests/MusicRecognition.Infrastructure.Tests
 # 导出独立栅格检查；路径中的 ID 去掉连字符。
-& $env:MUSICRECOGNITION_PYTHON scripts/verify-p1-export.py --job output/backend/JOB_ID_N --version 2
+& $env:MUSICRECOGNITION_PYTHON tests/acceptance/verify-p1-export.py --job output/backend/JOB_ID_N --version 2
 ```
 
 恢复复跑：`aspire resource worker stop` → submit → `aspire resource api restart` → `aspire wait api` → check-queued → `aspire resource worker start` → `aspire wait worker` → resume。每条 Aspire 命令都带当前 AppHost 路径。运行中恢复则 submit → wait-processing → worker stop/start → resume。测试凭据仅保存在忽略的 output 证据文件中，不要发布这些文件。

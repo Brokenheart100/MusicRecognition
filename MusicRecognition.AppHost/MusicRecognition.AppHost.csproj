@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Docker" />
     <PackageReference Include="Aspire.Hosting.JavaScript" />
     <PackageReference Include="Aspire.Hosting.PostgreSQL" />
     <ProjectReference Include="../MusicRecognition.Api/MusicRecognition.Api.csproj" />

@@ -1,4 +1,4 @@
 {
   "python.defaultInterpreterPath": "${workspaceFolder}/.tools/poc-python/Scripts/python.exe",
-  "python.analysis.extraPaths": ["scripts/poc"]
+  "python.analysis.extraPaths": ["scripts/runtime"]
 }

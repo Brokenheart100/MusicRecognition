@@ -14,16 +14,18 @@
 
 新增或升级包时，修改此文件并在需要的项目添加引用；还原、构建、测试和传递依赖审计后再记录结论。集中管理统一声明位置，不意味着所有组件必须使用同一版本数字。
 
+2026-10-25：在此集中固定 `CliWrap 3.10.5`，只由 Infrastructure 引用，用于 Python 运行和启动依赖检查；Domain / Application 不依赖进程库。接入范围、Windows 进程树兼容处理及验证见 [CliWrap 接入报告](cliwrap-validation.md)。工具的安装、路径及版本仍由原有准备脚本和 Recognition 配置管理。
+
 ## SDK 与工具
 
 - [global.json](../global.json) 的 `msbuild-sdks` 集中固定 Aspire.AppHost.Sdk；AppHost 的 Project Sdk 只保留名称。SDK 在项目求值早期解析，不放进 PackageVersion。
 - Aspire SDK 和 Aspire integration 包目前都为 13.6.2，升级时同时核对这两个位置。
 - [dotnet-tools.json](../dotnet-tools.json) 是 .NET 官方本地工具清单。dotnet-ef 继续固定 10.0.13，与集中声明的 EF Core 10.0.13 一起核对，使用 `dotnet tool restore`，不另造工具版本解析机制。
-- Python / Audiveris 工具仍按 [P0 说明](../scripts/poc/README.md) 准备；NuGet CPM 不负责其他生态的依赖。P2 的 Nuxt 依赖集中在 MusicRecognition.Web/package.json，并提交 package-lock.json；用 npm ci 还原。Python 新增 FontTools 也在既有 requirements.txt 固定版本。
+- Python / Audiveris 工具仍按 [P0 说明](../tests/acceptance/README.md) 准备；NuGet CPM 不负责其他生态的依赖。P2 的 Nuxt 依赖集中在 MusicRecognition.Web/package.json，并提交 package-lock.json；用 npm ci 还原。Python 新增 FontTools 也在既有 requirements.txt 固定版本。
 
 ## 本次验证
 
-2026-10-22 补充：Python 默认采用项目 `.tools/poc-python` 虚拟环境；`scripts/runtime/setup.ps1` 安装基础固定依赖，`-WithOpenCV` 使用 `scripts/poc/requirements-opencv.txt` 引用基础清单并增加 `opencv-python-headless==4.13.0.92`。不把 OpenCV 重复装进 NuGet / npm，也未引入 pdfme。`pip check` 与真实闭环 / A/B 结果见 [专项报告](opencv-validation.md)。以下保留此前 NuGet 集中管理迁移时的验证记录。
+2026-10-22 补充：Python 默认采用项目 `.tools/poc-python` 虚拟环境；`scripts/setup/setup.ps1` 安装基础固定依赖，`-WithOpenCV` 使用 `scripts/setup/requirements-opencv.txt` 引用基础清单并增加 `opencv-python-headless==4.13.0.92`。不把 OpenCV 重复装进 NuGet / npm，也未引入 pdfme。`pip check` 与真实闭环 / A/B 结果见 [专项报告](opencv-validation.md)。以下保留此前 NuGet 集中管理迁移时的验证记录。
 
 9 个项目、20 处显式 PackageReference 合并为 17 个集中 PackageVersion。迁移前后全部项目的已解析 NuGet 包 ID / 版本集合一致；比较结果见 `output/validation/cpm/comparison.json`。AppHost 通过 global.json 正确解析相同版本 SDK。
 

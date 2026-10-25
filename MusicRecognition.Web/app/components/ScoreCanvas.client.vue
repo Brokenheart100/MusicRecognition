@@ -16,7 +16,8 @@ const rendered = ref(false)
 const fallback = ref({ width: 1786, height: 2526 })
 const placing = ref(false)
 const marquee = ref<{ startX: number; startY: number; x: number; y: number; additive: boolean; moved: boolean } | null>(null)
-const drag = ref<{ id: string; startX: number; startY: number; x: number; y: number; currentX: number; currentY: number; moved: boolean } | null>(null)
+type DragAnchor = { id: string; x: number; y: number; width: number; height: number }
+const drag = ref<{ startX: number; startY: number; dx: number; dy: number; anchors: DragAnchor[]; moved: boolean } | null>(null)
 let pdf: PDFDocumentProxy | undefined
 let task: RenderTask | undefined
 let sequence = 0
@@ -42,7 +43,13 @@ const entries = computed(() => store.annotations?.annotations.filter(a => visibl
   // Per-note overrides from the draft win; otherwise the page-wide style applies.
   const style = store.styleOf(a.noteId)
   const factor = store.annotations?.pdfGeometry ? 72 / store.annotations.pdfGeometry.rasterDpi : 595.2755905512 / (store.annotations?.width || 1)
-  const pixels = style.fontSizePoints == null ? Math.max(15, Math.round(store.revision?.score.interline ?? a.fontSize)) : Math.round(style.fontSizePoints / factor)
+  const snapshot = store.revision?.score
+  const savedStyle = snapshot?.notes.find(n => n.id === a.noteId)?.style ?? snapshot?.annotationStyle
+  // Keep the server's per-chord fitted size after saving. Only unsaved switches
+  // from a fixed size show the preferred automatic size until export lays it out.
+  const pixels = style.fontSizePoints == null
+    ? savedStyle?.fontSizePoints == null ? a.fontSize : preferredAnnotationPixels(snapshot?.interline ?? a.fontSize, factor)
+    : Math.round(style.fontSizePoints / factor)
   const ratio = pixels / a.fontSize
   return { ...a, color: style.color, fontSize: pixels, width: a.width * ratio, height: a.height * ratio,
     baselineOffset: a.baselineOffset.map(value => value * ratio) as [number, number],
@@ -51,7 +58,8 @@ const entries = computed(() => store.annotations?.annotations.filter(a => visibl
 const selectedAnnotation = computed(() => entries.value.find(a => a.noteId === store.selectedId))
 
 function location(a: Annotation): readonly [number, number] | null {
-  if (drag.value?.id === a.noteId) return [drag.value.currentX, drag.value.currentY]
+  const anchor = drag.value?.anchors.find(value => value.id === a.noteId)
+  if (anchor && drag.value) return [anchor.x + drag.value.dx, anchor.y + drag.value.dy]
   const p = store.draft.placements[a.noteId]
   return p?.x != null && p.y != null ? [p.x, p.y] : a.labelBounds ? [a.labelBounds[0], a.labelBounds[1]] : null
 }
@@ -102,27 +110,56 @@ function endMarquee() {
   const ids = visibleNotes.value.filter(n => n.bounds.x < right && n.bounds.x + n.bounds.width > left && n.bounds.y < bottom && n.bounds.y + n.bounds.height > top).map(n => n.id)
   store.selectRegion(ids, value.additive)
 }
-function pointerDown(event: PointerEvent) { if (placing.value) { place(event); return } startMarquee(event) }
+function pointerDown(event: PointerEvent) { if (event.button !== 0 || !event.isPrimary) return; if (placing.value) { place(event); return } startMarquee(event) }
 function pointerMove(event: PointerEvent) { if (drag.value) { move(event); return } moveMarquee(event) }
 function pointerUp() { if (drag.value) { end(); return } endMarquee() }
-function start(event: PointerEvent, a: Annotation) {
-  store.selectedId = a.noteId
+function movableAnchors(): DragAnchor[] {
+  const ids = new Set(store.selection.length ? store.selection : store.selectedId ? [store.selectedId] : [])
+  return entries.value.flatMap(a => {
+    if (!ids.has(a.noteId) || store.placement(a.noteId)?.hidden) return []
+    const p = location(a)
+    return p ? [{ id: a.noteId, x: p[0], y: p[1], width: a.width, height: a.height }] : []
+  })
+}
+function boundedDelta(anchors: DragAnchor[], dx: number, dy: number) {
+  // Clamp the shared translation, rather than each label, to keep spacing intact.
+  const width = Math.min(physical.value.width, store.revision?.score.width ?? physical.value.width)
+  const height = Math.min(physical.value.height, store.revision?.score.height ?? physical.value.height)
+  const left = Math.max(...anchors.map(a => 2 - a.x)), right = Math.min(...anchors.map(a => width - a.width - 3 - a.x))
+  const top = Math.max(...anchors.map(a => 2 - a.y)), bottom = Math.min(...anchors.map(a => height - a.height - 3 - a.y))
+  return { dx: left > right ? 0 : Math.max(left, Math.min(right, dx)), dy: top > bottom ? 0 : Math.max(top, Math.min(bottom, dy)) }
+}
+function commitMove(anchors: DragAnchor[], dx: number, dy: number) {
+  store.positionMany(anchors.map(a => ({ id: a.id, x: a.x + dx, y: a.y + dy })))
+}
+function moveSelection(dx: number, dy: number) {
   if (!store.editable) return
-  const position = location(a), cursor = point(event)
-  if (!position || !cursor) return
-    ; (event.currentTarget as SVGElement).setPointerCapture(event.pointerId)
-  drag.value = { id: a.noteId, startX: cursor.x, startY: cursor.y, x: position[0]!, y: position[1]!, currentX: position[0]!, currentY: position[1]!, moved: false }
+  const anchors = movableAnchors(); if (!anchors.length) return
+  const delta = boundedDelta(anchors, dx, dy)
+  commitMove(anchors, delta.dx, delta.dy)
+}
+function start(event: PointerEvent, id: string) {
+  if (event.button !== 0 || !event.isPrimary) return
+  event.preventDefault()
+  if (event.shiftKey || event.ctrlKey || event.metaKey) { store.toggle(id); return }
+  // Focusing a member of the selection keeps the whole selected set.
+  store.selectedId = id
+  if (!store.editable) return
+  const cursor = point(event), anchors = movableAnchors()
+  if (!anchors.length || !cursor || !props.labels) return
+  svgEl.value?.setPointerCapture(event.pointerId)
+  drag.value = { startX: cursor.x, startY: cursor.y, dx: 0, dy: 0, anchors, moved: false }
 }
 function move(event: PointerEvent) {
   if (!drag.value) return
   const p = point(event); if (!p) return
-  const a = entries.value.find(a => a.noteId === drag.value?.id)
-  drag.value.currentX = Math.max(2, Math.min(physical.value.width - (a?.width ?? 20) - 3, drag.value.x + p.x - drag.value.startX))
-  drag.value.currentY = Math.max(2, Math.min(physical.value.height - (a?.height ?? 20) - 3, drag.value.y + p.y - drag.value.startY))
   drag.value.moved ||= Math.abs(p.x - drag.value.startX) + Math.abs(p.y - drag.value.startY) > 2
+  if (!drag.value.moved) return
+  const delta = boundedDelta(drag.value.anchors, p.x - drag.value.startX, p.y - drag.value.startY)
+  drag.value.dx = delta.dx; drag.value.dy = delta.dy
 }
 function end() {
-  if (drag.value?.moved) store.position(drag.value.id, drag.value.currentX, drag.value.currentY)
+  if (drag.value?.moved && (drag.value.dx || drag.value.dy)) commitMove(drag.value.anchors, drag.value.dx, drag.value.dy)
   drag.value = null
 }
 function place(event: PointerEvent) {
@@ -132,6 +169,7 @@ function place(event: PointerEvent) {
   placing.value = false
 }
 function beginPlaceCurrent() { placing.value = true }
+function cancelInteraction() { placing.value = false; drag.value = null; marquee.value = null }
 function nextPending() {
   const pending = store.annotations?.annotations.filter(a => a.status === 'needs-manual-placement' && !store.placement(a.noteId)?.hidden) ?? []
   if (!pending.length) return
@@ -161,6 +199,7 @@ async function paint() {
   finally { if (ticket === renderSequence) renderPhase.value = 'idle' }
 }
 watch(() => store.source, async (source, previousSource) => {
+  drag.value = null; marquee.value = null; placing.value = false
   const ticket = ++sequence
   ++renderSequence
   renderPhase.value = source?.pdf ? 'loading' : 'idle'
@@ -185,11 +224,12 @@ watch(() => store.source, async (source, previousSource) => {
 watch(paperWidth, () => void paint())
 watch(() => store.selectedId, async (id) => {
   placing.value = false
+  if (!id) drag.value = null
   await nextTick()
   if (id) stage.value?.querySelector(`.note-target[data-note-id="${id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
 })
 onBeforeUnmount(() => { ++sequence; ++renderSequence; task?.cancel(); void pdf?.loadingTask.destroy(); if (store.source?.url) URL.revokeObjectURL(store.source.url) })
-defineExpose({ beginPlaceCurrent, nextPending })
+defineExpose({ beginPlaceCurrent, cancelInteraction, nextPending, moveSelection })
 </script>
 
 <template>
@@ -220,7 +260,7 @@ defineExpose({ beginPlaceCurrent, nextPending })
           <g v-for="a in entries" :key="`label-${a.noteId}`">
             <g v-if="labels && location(a) && !store.placement(a.noteId)?.hidden"
               :transform="`translate(${location(a)![0]} ${location(a)![1]})`" class="annotation-label"
-              :data-note-id="a.noteId" @pointerdown.stop="start($event, a)">
+              :data-note-id="a.noteId" @pointerdown.stop="start($event, a.noteId)">
               <rect x="0" y="0" :width="a.width" :height="a.height" class="label-hit"
                 :class="{ 'is-selected': store.selectedId === a.noteId, 'is-in-selection': store.selection.includes(a.noteId), 'is-manual': store.draft.placements[a.noteId] }" />
               <g :transform="`translate(${a.baselineOffset[0]} ${a.baselineOffset[1]}) scale(${a.fontSize / (store.annotations.glyphs?.unitsPerEm || 2048)} ${-a.fontSize / (store.annotations.glyphs?.unitsPerEm || 2048)})`"
@@ -235,7 +275,7 @@ defineExpose({ beginPlaceCurrent, nextPending })
           </g>
           <g v-for="note in visibleNotes" :key="note.id" role="button" tabindex="0"
             :aria-label="`校对 ${note.pitch.step}${note.pitch.octave}，小节 ${note.measure}，谱表 ${note.staff}`"
-            class="note-target" :data-note-id="note.id" @pointerdown.stop="store.selectedId = note.id"
+            class="note-target" :data-note-id="note.id" @pointerdown.stop="start($event, note.id)"
             @keydown.enter.prevent="store.selectedId = note.id" @keydown.space.prevent="store.selectedId = note.id"
             @focus="store.selectedId = note.id">
             <rect :x="note.bounds.x - 5" :y="note.bounds.y - 5" :width="note.bounds.width + 10"
@@ -253,6 +293,6 @@ defineExpose({ beginPlaceCurrent, nextPending })
           :width="Math.abs(marquee.x - marquee.startX)" :height="Math.abs(marquee.y - marquee.startY)" />
       </svg>
     </div>
-    <p v-if="store.annotations" class="paper-caption">原谱保留 · 点击音符即可校对 · 保存后更新标注布局</p>
+    <p v-if="store.annotations" class="paper-caption">框选后拖动符头或数字，可一起移动标注 · 方向键微调 · 保存后检查留白</p>
   </div>
 </template>

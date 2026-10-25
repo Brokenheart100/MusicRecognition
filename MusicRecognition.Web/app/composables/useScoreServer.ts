@@ -77,9 +77,12 @@ export function useScoreServer(active: Ref<RecentScore | null>, pageNumber: Ref<
   async function musicXml(id: string, signal: AbortSignal) {
     return (await sdk.getScoreArtifact({ ...access(id), path: { id, name: 'score.mxl' }, signal, parseAs: 'blob' })).data as Blob
   }
+  async function reflow(id: string, version: number, signal: AbortSignal) {
+    return (await sdk.getScoreReflow({ ...access(id), query: { version }, signal })).data
+  }
   // Cancel and evict private content, including blobs, when switching documents.
   watch(scope, (_value, previous) => { if (previous) { void cache.cancelQueries({ queryKey: ['scores', previous.key] }); cache.removeQueries({ queryKey: ['scores', previous.key] }) } })
   const queryError = computed(() => documentQuery.error.value || pageQuery.error.value || revisionQuery.error.value || layoutQuery.error.value || sourceQuery.error.value || exportQuery.error.value)
   return { job, documentJob, multiPage, currentJobId, revision, annotations: computed(() => layoutQuery.data.value ?? null), documentExport: computed(() => exportQuery.data.value ?? null),
-    sourceBlob: sourceQuery.data, queryError, importMutation, revisionMutation, exportMutation, commandMutation, refresh, artifact, musicXml }
+    sourceBlob: sourceQuery.data, queryError, importMutation, revisionMutation, exportMutation, commandMutation, refresh, artifact, musicXml, reflow }
 }

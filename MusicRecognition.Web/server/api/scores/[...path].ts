@@ -2,7 +2,7 @@
 export default defineEventHandler(async (event) => {
   const suffix = (getRouterParam(event, 'path') || '').replace(/\/$/, '')
   const id = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
-  const read = new RegExp(`^${id}(?:/revisions|/layout|/exports/[1-9]\\d{0,5}|/artifacts/(?:source|score\\.mxl|annotated\\.pdf|annotations\\.json|metrics\\.json))?$`)
+  const read = new RegExp(`^${id}(?:/revisions|/layout|/reflow|/exports/[1-9]\\d{0,5}|/artifacts/(?:source|score\\.mxl|annotated\\.pdf|annotations\\.json|metrics\\.json))?$`)
   const write = new RegExp(`^${id}/(?:revisions|exports|cancel|retry)$`)
   if (!((event.method === 'GET' && read.test(suffix)) || (event.method === 'POST' && (!suffix || write.test(suffix))))) {
     throw createError({ statusCode: 404, statusMessage: 'Route not found' })
@@ -19,6 +19,7 @@ export default defineEventHandler(async (event) => {
   if (version) target.searchParams.set('version', version as string)
   setResponseHeader(event, 'Cache-Control', 'private, no-store')
   return proxyRequest(event, target.href, {
+    streamRequest: true,
     headers: { cookie: '', authorization: '' },
     fetchOptions: { redirect: 'manual' },
   })

@@ -1,0 +1,49 @@
+param([string]$Python = '', [switch]$WithOpenCV, [switch]$WithComposition, [string]$PopplerDirectory = '', [string]$Font = 'C:/Windows/Fonts/seguisym.ttf')
+$ErrorActionPreference = 'Stop'
+$root = (Resolve-Path "$PSScriptRoot/../..").Path
+if (!$Python) { $Python = Join-Path $root $(if ($IsWindows) { '.tools/poc-python/Scripts/python.exe' } else { '.tools/poc-python/bin/python' }) }
+$app = Join-Path $root '.tools/audiveris/Audiveris'
+$compiler = Join-Path $root '.tools/jdk25/jdk-25.0.4.1+1/bin/javac.exe'
+if (!(Test-Path $compiler) -or !(Test-Path "$app/runtime/bin/java.exe")) { throw 'Provision the pinned P0 Audiveris/JDK tools first; see tests/acceptance/README.md.' }
+& $Python -c 'import PIL,numpy,pypdf,reportlab,fontTools'
+if ($LASTEXITCODE) { throw 'Install scripts/setup/requirements.txt in the selected Python environment.' }
+if ($WithOpenCV) {
+    & $Python -c 'import cv2; print("Optional OpenCV ready:", cv2.__version__)'
+    if ($LASTEXITCODE) { throw 'Install scripts/setup/requirements-opencv.txt to enable Adaptive preprocessing.' }
+}
+if ($WithComposition) {
+    & $Python -c 'import music21; print("Composition music21:", music21.__version__)'
+    if ($LASTEXITCODE) { throw 'Install scripts/setup/requirements-composition.txt to enable screenshot composition.' }
+    $compositionRuntime = Join-Path $root '.tools/musescore/runtime.json'
+    if (!(Test-Path -LiteralPath $compositionRuntime)) { throw 'Run scripts/setup/provision-musescore.ps1 before enabling composition.' }
+    $compositionExecutable = (Get-Content -LiteralPath $compositionRuntime -Raw | ConvertFrom-Json).executable
+    if (!(Test-Path -LiteralPath $compositionExecutable)) { throw 'The configured composition PDF engine is missing.' }
+}
+$projectPoppler = Join-Path $root '.tools/poppler'
+$projectRenderer = Join-Path $projectPoppler 'bin/pdftoppm.exe'
+if ($PopplerDirectory -or !(Test-Path -LiteralPath $projectRenderer)) {
+    if (!$PopplerDirectory) {
+        $renderer = Get-Command pdftoppm -ErrorAction SilentlyContinue
+        if ($renderer) { $PopplerDirectory = Split-Path (Split-Path $renderer.Source) }
+        elseif ($IsWindows) {
+            & "$PSScriptRoot/provision-poppler.ps1"
+            $PopplerDirectory = $projectPoppler
+        }
+        else { throw 'Supply -PopplerDirectory <portable Poppler Library folder containing bin/pdftoppm>.' }
+    }
+    $PopplerDirectory = (Resolve-Path -LiteralPath $PopplerDirectory).Path
+    if (!(Test-Path -LiteralPath (Join-Path $PopplerDirectory 'bin/pdftoppm.exe'))) {
+        throw '-PopplerDirectory must contain bin/pdftoppm.exe and its runtime DLLs.'
+    }
+    if ($PopplerDirectory -ne $projectPoppler) {
+        New-Item -ItemType Directory -Force $projectPoppler | Out-Null
+        Get-ChildItem -LiteralPath $PopplerDirectory | Copy-Item -Destination $projectPoppler -Recurse -Force
+    }
+}
+$classes = Join-Path $root '.tools/poc-classes'
+New-Item -ItemType Directory -Force $classes | Out-Null
+& $compiler --release 25 -encoding UTF-8 -cp "$app/app/*" -d $classes "$root/scripts/runtime/ExportNotes.java"
+if ($LASTEXITCODE) { throw 'Java adapter compilation failed.' }
+& $Python "$root/scripts/runtime/preflight.py" --root $root --pdftoppm $projectRenderer --font $Font
+if ($LASTEXITCODE) { throw 'Recognition dependency validation failed.' }
+Write-Output "Recognition runtime ready: $Python. AppHost defaults to .tools/poc-python; explicit overrides remain supported."

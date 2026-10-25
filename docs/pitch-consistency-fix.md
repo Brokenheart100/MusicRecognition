@@ -56,13 +56,13 @@ Aspire 中 API、Worker、数据库和 Web 为 Healthy。本次 prepare、recogn
 
 28 项 Python 测试通过，包括缺失已分配声部符头、错误音名/声部/坐标/八度、重复 XML 的来源及次数校验，以及 PDF/颜色/合并与预处理回归。前端类型检查和 ESLint 通过。没有降低 `pitch_validation.py` 的验收条件，也没有新增软件包。
 
-复跑时先运行 `pwsh -File scripts/runtime/prepare.ps1` 编译 Java 适配器并检查依赖。保存 OMR 的验证命令：
+复跑时先运行 `pwsh -File scripts/setup/prepare.ps1` 编译 Java 适配器并检查依赖。保存 OMR 的验证命令：
 
 ```powershell
-.tools/poc-python/Scripts/python.exe scripts/verify-pitch-adapter.py --attempts <包含 score.omr、score.mxl、notes-1.json、octave-repairs.json 的目录> --output <新的验证目录>
+.tools/poc-python/Scripts/python.exe tests/acceptance/verify-pitch-adapter.py --attempts <包含 score.omr、score.mxl、notes-1.json、octave-repairs.json 的目录> --output <新的验证目录>
 ```
 
-完整流程使用 `scripts/validate-p3-live.py`，独立 PDF 验收使用 `scripts/verify-p3-export.py`；两者均接受 `--source` / `--evidence` / `--pdf`，前者另需 `--url`，应指定专用 `--access-file`。
+完整流程使用 `tests/e2e/validate-p3-live.py`，独立 PDF 验收使用 `tests/acceptance/verify-p3-export.py`；两者均接受 `--source` / `--evidence` / `--pdf`，前者另需 `--url`，应指定专用 `--access-file`。
 
 ## 仍需校对
 

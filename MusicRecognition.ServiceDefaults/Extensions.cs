@@ -16,8 +16,8 @@ public static class Extensions
         builder.Services.AddHealthChecks();
         builder.Logging.AddOpenTelemetry(o => { o.IncludeFormattedMessage = true; o.IncludeScopes = true; });
         var otel = builder.Services.AddOpenTelemetry()
-            .WithMetrics(m => m.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation().AddMeter("Microsoft.AspNetCore.Hosting", "System.Net.Http"))
-            .WithTracing(t => t.AddAspNetCoreInstrumentation(o => o.Filter = context => !context.Request.Path.StartsWithSegments("/health")).AddHttpClientInstrumentation());
+            .WithMetrics(m => m.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation().AddMeter("Microsoft.AspNetCore.Hosting", "System.Net.Http", "MusicRecognition.Processing"))
+            .WithTracing(t => t.AddSource("MusicRecognition.Processing").AddAspNetCoreInstrumentation(o => o.Filter = context => !context.Request.Path.StartsWithSegments("/health") && !context.Request.Path.StartsWithSegments("/alive")).AddHttpClientInstrumentation());
         if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"])) otel.UseOtlpExporter();
         return builder;
     }

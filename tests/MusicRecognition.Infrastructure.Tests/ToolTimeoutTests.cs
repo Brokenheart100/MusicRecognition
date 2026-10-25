@@ -12,7 +12,7 @@ public sealed class ToolTimeoutTests
         var options=new RecognitionOptions {RepositoryRoot=root,DataRoot=Path.Combine(root,"output","p1","timeout"),Python=python,TimeoutSeconds=10};
         var files=new FileStorage(options,NullLogger<FileStorage>.Instance);var id=Guid.NewGuid();Directory.CreateDirectory(files.JobDirectory(id));
         File.Copy(Path.Combine(root,"output","poc-pdf","input","Minuet-xpose-a4.pdf"),Path.Combine(files.JobDirectory(id),"source.pdf"));
-        var engine=new ToolEngine(options,files,NullLogger<ToolEngine>.Instance);
+        var engine=new ToolEngine(options,files,NullLogger<ToolEngine>.Instance,new DiagnosticScoreRepository());
         var error=await Assert.ThrowsAsync<ToolFailure>(()=>engine.RecognizeAsync(id,".pdf",CancellationToken.None));
         Assert.Equal("processing-timeout",error.Code);
         Assert.False(Directory.Exists(Path.Combine(files.JobDirectory(id),"raw")));

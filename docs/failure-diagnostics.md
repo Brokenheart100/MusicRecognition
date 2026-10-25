@@ -2,6 +2,8 @@
 
 更新：2026-10-22。
 
+2026-10-23：[Ninelie 页眉八度误识别修复与真实任务验证](octave-header-fix.md)。八度线范围或所属谱表无法可靠判断时，返回 `octave-evidence-ambiguous`，具体候选证据保存在 `octave-repairs.json`。
+
 ## Aspire 中查看
 
 打开「结构化日志」，选择 `api` 或 `worker`，按任务 ID 搜索。识谱失败事件现在包含：
@@ -50,7 +52,7 @@
 
 最新三页原文档 `71dfe3d0-f306-44ba-9957-60e710bbc564` 的失败页回放通过，全新验证任务 `32f7df19-0dff-4aac-82c6-3ed971899a07` 的三页识谱、逐页导出和整份合并通过。827 个符头保留，739 个标注安全放置，88 个待人工放置；24 个节奏声部未确定，第二页 13 个符头的调号需重点校对。历史任务和历史失败日志不会自动改写。
 
-完整根因、边界、原六页 OMR 的回归及真实负例证据见 [音高一致性修复与验证报告](pitch-consistency-fix.md)。编译适配器使用 `scripts/runtime/prepare.ps1`，`pipeline.py` 不提供 `compile` 操作。前面的历史日志验证和下面的测试记录保留其原有范围。
+完整根因、边界、原六页 OMR 的回归及真实负例证据见 [音高一致性修复与验证报告](pitch-consistency-fix.md)。编译适配器使用 `scripts/setup/prepare.ps1`，`pipeline.py` 不提供 `compile` 操作。前面的历史日志验证和下面的测试记录保留其原有范围。
 
 ## 验证
 
@@ -60,6 +62,6 @@
 - 实际 API 测试：伪装 PDF 的文件签名错误返回 HTTP 400；不存在的任务返回 HTTP 404；响应 traceId 与日志 `RequestTraceId` 可关联。
 - 两个真实失败页已经在 Aspire 中产生包含具体 `FailureReason`、stderr 摘要及日志路径的事件。
 
-复现：`scripts/validate-failure-logging.py --url <API 地址> --sources <失败页 PDF> ...`。省略 `--sources` 仅检查 API 失败诊断。
+复现：`tests/e2e/validate-failure-logging.py --url <API 地址> --sources <失败页 PDF> ...`。省略 `--sources` 仅检查 API 失败诊断。
 
 证据保存在忽略目录 `output/logging-validation/`，包括 `evidence.json`、`api-errors.json` 和 `aspire-worker-errors.json`。

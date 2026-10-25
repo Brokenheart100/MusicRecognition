@@ -56,6 +56,7 @@ public sealed class ScoreService(IScoreRepository db, IScoreStorage files) : ISc
     public async Task<RevisionView> RevisionAsync(Guid id,int? version,string token,CancellationToken ct)
     {
         var j=await Authorized(id,token,ct);
+        if (j.Extension==FragmentService.Extension) throw new RequestFailure(409,"fragment-project","请在片段拼谱界面读取此项目。");
         if (j.PageCount > 1) throw new RequestFailure(400,"select-page","Select a page task to read its revisions.");
         var r=await db.FindRevisionAsync(id,version??j.CurrentRevision,ct) ?? throw new RequestFailure(409,"result-not-ready","No revision is available yet.");
         return new(r.Version,r.State,ScoreJson.Read<ScoreSnapshot>(r.Snapshot),r.ErrorCode);
@@ -63,6 +64,7 @@ public sealed class ScoreService(IScoreRepository db, IScoreStorage files) : ISc
     public async Task<RevisionView> CorrectAsync(Guid id,string token,RevisionRequest request,CancellationToken ct)
     {
         var j=await Authorized(id,token,ct);
+        if (j.Extension==FragmentService.Extension) throw new RequestFailure(409,"fragment-project","请在片段拼谱界面编辑此项目。");
         if (j.PageCount > 1) throw new RequestFailure(400,"select-page","Select a page task before correcting.");
         if(j.State!="Ready" || j.CancelRequested) throw new RequestFailure(409,"score-not-ready","Wait for recognition before correcting.");
         if(request.ExpectedRevision!=j.CurrentRevision) throw new RequestFailure(409,"revision-conflict","Reload the current revision before saving.");
@@ -131,6 +133,7 @@ public sealed class ScoreService(IScoreRepository db, IScoreStorage files) : ISc
     public async Task<StoredFile> ArtifactAsync(Guid id,int? version,string name,string token,CancellationToken ct)
     {
         var j=await Authorized(id,token,ct);
+        if (j.Extension==FragmentService.Extension) throw new RequestFailure(409,"fragment-project","请从片段拼谱界面下载此项目。");
         if(name=="source") return new(Path.Combine(files.JobDirectory(id),"source"+j.Extension),j.Extension==".pdf"?"application/pdf":j.Extension==".png"?"image/png":"image/jpeg","source"+j.Extension);
         if(name=="score.mxl")
         {

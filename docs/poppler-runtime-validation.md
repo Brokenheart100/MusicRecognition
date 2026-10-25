@@ -8,7 +8,7 @@
 
 修复内容：
 
-- `scripts/runtime/prepare.ps1` 接受 `-PopplerDirectory`，把便携 Poppler 的 bin、DLL、配置及 share 文件复制到已忽略的 `.tools/poppler/`。已有本地副本可重复使用；首次准备可从当前终端查找安装位置。不会在处理上传文件时下载工具。
+- `scripts/setup/prepare.ps1` 接受 `-PopplerDirectory`，把便携 Poppler 的 bin、DLL、配置及 share 文件复制到已忽略的 `.tools/poppler/`。已有本地副本可重复使用；首次准备可从当前终端查找安装位置。不会在处理上传文件时下载工具。
 - `RecognitionOptions.Pdftoppm` 默认解析项目内 `.tools/poppler/bin/pdftoppm.exe`；支持通过 `Recognition__Pdftoppm` 指定其他绝对路径。ToolEngine 显式传递 `MUSICRECOGNITION_PDFTOPPM` 给 Python，PDF 栅格化始终用解析后的绝对路径。
 - 已配置路径无效时返回 `pdf-renderer-unavailable`，不悄悄回退到另一份 PATH 工具。独立 PoC 没有显式配置时仍可使用 PATH。验证脚本也复用同一解析函数。
 - Worker 在 `app.Run()`、Hangfire 消费任务之前执行 `RecognitionRuntime.ValidateAsync`。检查 Python 必需模块、Poppler `-v`、Audiveris Java 版本及 JAR、Java 适配器是否已编译且未过期、字体及简谱必需字符，并实际生成、栅格化一个小 PDF。安装了 OpenCV 时也会实际导入。检查失败会阻止启动，错误写入 Worker 日志。
@@ -64,14 +64,42 @@ SHA-256：`8d01217ae8a1b5ce367a2a690a1511ed258f799d0d7b40f93ac4114f1d0a36c8`。
 
 ```powershell
 # 首次准备时可传 -PopplerDirectory C:/tools/poppler/Library。
-./scripts/runtime/prepare.ps1 -WithOpenCV
+./scripts/setup/prepare.ps1 -WithOpenCV
 aspire resource worker rebuild --non-interactive
 aspire wait api --non-interactive
 aspire wait worker --non-interactive
 # 从 aspire describe 获取当前 API 地址；不要沿用旧端口。
-.tools/poc-python/Scripts/python.exe scripts/validate-p3-live.py --url http://localhost:<api-port> --source output/backend/2e83e68c50f24a74b96f4032430516a7/source.pdf --evidence output/poppler-simple-validation --access-file tmp/poppler-simple-access.json --pdf output/pdf/simple-score-annotated.pdf
+.tools/poc-python/Scripts/python.exe tests/e2e/validate-p3-live.py --url http://localhost:<api-port> --source output/backend/2e83e68c50f24a74b96f4032430516a7/source.pdf --evidence output/poppler-simple-validation --access-file tmp/poppler-simple-access.json --pdf output/pdf/simple-score-annotated.pdf
 $env:MUSICRECOGNITION_PDFTOPPM = (Resolve-Path .tools/poppler/bin/pdftoppm.exe).Path
-.tools/poc-python/Scripts/python.exe scripts/verify-p3-export.py --source output/backend/2e83e68c50f24a74b96f4032430516a7/source.pdf --pdf output/pdf/simple-score-annotated.pdf --evidence output/poppler-simple-validation
+.tools/poc-python/Scripts/python.exe tests/acceptance/verify-p3-export.py --source output/backend/2e83e68c50f24a74b96f4032430516a7/source.pdf --pdf output/pdf/simple-score-annotated.pdf --evidence output/poppler-simple-validation
 ```
 
 `validate-p3-live.py` / `verify-p3-export.py` 改为从输入和 metrics 获取多页页数，保留原六页验证的默认目录参数，支持本次两页样本；验证工具不再把 `6` 写死为所有输入的页数。
+
+## 2026-10-25：Windows 便携工具链文件缺失与恢复
+
+现场 Aspire 显示 API、数据库和 Web 健康，Worker 为 Finished。日志末尾为启动检查报错 `Poppler pdftoppm is missing`，表明进程在 Hangfire 开始消费任务前退出；Finished 不是识谱完成状态。
+
+文件检查确认 `.tools/poppler/bin/pdftoppm.exe`、Audiveris 自带 `runtime/bin/java.exe`、JDK 的 `bin/javac.exe` 和 MuseScore `bin` 下的可执行文件缺失，而相邻资源目录、Python 和缓存发布包仍在。现有证据无法确定文件缺失来源，未据此认定是某个清理脚本或安全软件所致。
+
+恢复与准备脚本修正：
+
+- 新增 `scripts/setup/provision-poppler.ps1`：从 [Windows 发布包维护者的固定 26.07.0-0 发布](https://github.com/oschwartz10612/poppler-windows/releases/tag/v26.07.0-0) 准备完整 bin / DLL / etc / share，校验 SHA256 `a711b0563b06edc488583d28198b6734c5a494afbbd1b9d87d3d2866062fb7e2`。支持修复部分缺失的项目副本。
+- `prepare.ps1` 找不到项目 Poppler 和 PATH 工具时调用该准备入口。下载仅发生于显式准备操作，不加入 Worker 启动或处理上传的流程。
+- `provision-tools.ps1` 同时检查 Audiveris 启动器、自带 Java 和 JAR，修复“启动器仍在但 Java bin 丢失”时跳过恢复的问题。
+- 用已有且校验通过的固定发布包恢复 Audiveris / JDK / MuseScore，重新编译 Java 适配器，并执行完整依赖检查。
+
+验证：Poppler 26.07.0、Audiveris 自带 Java 25.0.3、OpenCV 4.13.0、music21 10.5.1 与 MuseScore 可启动；测试 PDF 实际栅格化得到 144×144 像素。通过资源命令重新启动 Worker，4.7 秒后健康检查通过，API / Worker / Web 均为 Running / Healthy。没有重新提交或删除用户任务。本次只复验依赖恢复和启动，不将其作为所有乐谱重新完成识别的证据。
+
+本机复跑入口：
+
+```powershell
+pwsh -File scripts/setup/provision-tools.ps1
+pwsh -File scripts/setup/provision-poppler.ps1
+pwsh -File scripts/setup/provision-musescore.ps1
+pwsh -File scripts/setup/prepare.ps1 -WithOpenCV -WithComposition
+aspire resource worker start --apphost MusicRecognition.AppHost/MusicRecognition.AppHost.csproj --non-interactive
+aspire wait worker --apphost MusicRecognition.AppHost/MusicRecognition.AppHost.csproj --non-interactive
+```
+
+现场检查记录保存在忽略的 `tmp/poppler-provision-20261025.log`、`tmp/windows-toolchain-recovery-20261025.log`、`tmp/poppler-recovery-20261025.log` 和 `tmp/windows-runtime-verified-20261025.json`。

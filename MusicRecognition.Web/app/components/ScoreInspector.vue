@@ -6,7 +6,7 @@ const steps: Step[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
 const alterations = [{ label: '重降 ♭♭', value: -2 }, { label: '降音 ♭', value: -1 }, { label: '本位 ♮', value: 0 }, { label: '升音 ♯', value: 1 }, { label: '重升 ♯♯', value: 2 }]
 const modes = [{ label: '固定 C', value: 'FixedC' }, { label: '首调', value: 'MovableDo' }]
 const scales = [{ label: '大调 · 主音为 1', value: 'Major' }, { label: '自然小调 · 主音为 6', value: 'NaturalMinor' }]
-const fontSizes = [{ label: '自动 · 随谱线大小', value: 0 }, ...[3, 4, 5, 6, 7, 8, 10, 12, 16].map(value => ({ label: `${value} pt`, value }))]
+const fontSizes = [{ label: '自适应 · 随谱面留白', value: 0 }, ...[3, 4, 5, 6, 7, 8, 10, 12, 16].map(value => ({ label: `${value} pt`, value }))]
 const colors = [{ name: '黑色', value: '#000000' }, { name: '深灰', value: '#475569' }, { name: '蓝色', value: '#2563EB' }, { name: '红色', value: '#DC2626' }, { name: '绿色', value: '#15803D' }]
 const colorError = ref('')
 const colorInput = ref('')
@@ -32,6 +32,7 @@ const currentPitch = computed(() => store.selectedId ? store.pitch(store.selecte
 const a = computed(() => store.annotations?.annotations.find(n => n.noteId === store.selectedId))
 const unresolvedRhythm = computed(() => store.revision?.score.warnings.filter(warning => warning.startsWith('unresolved-rhythm:')).length ?? 0)
 const incompleteKeyHeads = computed(() => store.revision?.score.warnings.filter(warning => warning.startsWith('invalid-key-signature:')).length ?? 0)
+const rejectedHeaderOctaves = computed(() => store.revision?.score.warnings.filter(warning => warning.includes(':header-outside-staff-region')).length ?? 0)
 function pitch(field: keyof Pitch, value: string | number) {
   if (!store.selectedId || !currentPitch.value) return
   store.correct(store.selectedId, { ...currentPitch.value, [field]: value })
@@ -77,7 +78,10 @@ function removeKey(index: number) { store.numbering({ ...store.draft.numbering, 
           <UInput v-model="colorInput" aria-label="标注颜色十六进制" class="mt-3 w-full" :maxlength="7" :disabled="!store.editable" @change="commitColor" />
         </UFormField>
         <UButton v-if="targets.length && targets.some(id => store.styleOverridden(id))" icon="i-lucide-undo-2" size="xs" color="neutral" variant="ghost" label="恢复跟随全页样式" class="mt-2" :disabled="!store.editable" @click="store.resetStyle()" />
-        <p class="field-help">{{ targets.length ? '只作用于选中的标注；在谱面上按住左键框选可批量修改。' : '作用于当前页所有标注，预览即时更新。' }}保存后重新检查留白；较大的字号可能产生待放置标注。</p>
+        <p class="field-help">{{ targets.length ? '只作用于选中的标注；在谱面上按住左键框选可批量修改。' : '作用于当前页所有标注，预览即时更新。' }}自适应让单音最大，双音、三音及更多和弦逐级变小；保存后按留白继续调整，最低 3 pt。固定字号保持所选大小。</p>
+        <UButton v-if="!targets.length && scope.fontSizePoints === null" class="mt-2" icon="i-lucide-refresh-cw" size="xs" color="neutral" variant="soft"
+          label="重新计算标注" :loading="store.saving" :disabled="!store.editable || store.dirty" @click="store.save(true)" />
+        <p v-if="!targets.length && scope.fontSizePoints === null" class="field-help">应用最新排版规则并生成新版本；有未保存修改时请先保存。</p>
       </section>
       <section class="inspector-section">
         <div class="section-label">简谱方式 <span>NUMBERING</span></div>
@@ -110,6 +114,7 @@ function removeKey(index: number) { store.numbering({ ...store.draft.numbering, 
         <p>自动识别需要人工校对。数字提示音高，不代表指法。</p>
         <p v-if="unresolvedRhythm" role="status">本页有 {{ unresolvedRhythm }} 个音符的节奏声部尚未确定，音高标注已保留，请重点校对。</p>
         <p v-if="incompleteKeyHeads" role="status">本页有 {{ incompleteKeyHeads }} 个音符的调号识别不完整，请重点核对转调处的升降号。</p>
+        <p v-if="rejectedHeaderOctaves" role="status">已忽略 {{ rejectedHeaderOctaves }} 个页眉区域的八度记号误识别候选。请对照原谱核对本页实际的八度线与音高。</p>
         <button v-if="store.pending" class="pending-button" @click="emit('pending')"><span class="status-dot amber" /> {{ store.pending }} 个标注待放置 <UIcon name="i-lucide-arrow-up-right" /></button>
         <span v-if="store.hiddenCount" class="hidden-count">{{ store.hiddenCount }} 个标注已隐藏</span>
       </section>

@@ -15,7 +15,11 @@
     "api:pull": "node scripts/pull-openapi.mjs",
     "api:generate": "openapi-ts",
     "api:check": "node scripts/check-generated.mjs",
-    "test:contract": "tsx scripts/check-contract.ts"
+    "test:contract": "tsx tests/contract/check-contract.ts",
+    "test:layout": "tsx tests/contract/check-layout.ts",
+    "test:sdk-live": "tsx tests/e2e/check-live-sdk.ts",
+    "evaluate:reflow": "node tools/evaluation/check-reflow-import.mjs",
+    "probe:verovio": "node tools/evaluation/probe-verovio.mjs"
   },
   "dependencies": {
     "@iconify-json/lucide": "1.2.98",
@@ -24,11 +28,13 @@
     "@tanstack/vue-query": "5.104.5",
     "@vueuse/core": "15.0.0",
     "@vueuse/nuxt": "15.0.0",
+    "cropperjs": "1.6.2",
     "nuxt": "4.6.2",
     "opensheetmusicdisplay": "2.2.1",
     "pdfjs-dist": "6.4.299",
     "pinia": "4.1.0",
     "tailwindcss": "4.3.0",
+    "verovio": "6.3.0",
     "vue": "3.5.44",
     "zod": "4.6.7"
   },

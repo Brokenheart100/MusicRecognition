@@ -40,7 +40,7 @@ ModuleNotFoundError: No module named 'PIL'
 
 当前 AppHost 注入的 `Recognition__Python` 为 `python`；该运行环境缺少 Pillow。故障发生在 Python 导入阶段，尚未进入识谱引擎，不能归因为样谱识别质量问题。证据保存在 `output/backend/326a6ef263c4442489d50a3fccef74aa/recognize-*.log`。
 
-健康检查通过仅说明服务与数据库连接健康，不代表识谱依赖齐全。本次没有安装 Python 包、更换解释器、重启 AppHost或重试任务。修复时应先选择一个项目专用且安装了 `scripts/poc/requirements.txt` 的 Python 环境，用 `scripts/runtime/prepare.ps1 -Python <绝对路径>` 检查，再按 [P1 启动说明](p1-backend.md) 配置解释器并重新验收真实任务。
+健康检查通过仅说明服务与数据库连接健康，不代表识谱依赖齐全。本次没有安装 Python 包、更换解释器、重启 AppHost或重试任务。修复时应先选择一个项目专用且安装了 `scripts/setup/requirements.txt` 的 Python 环境，用 `scripts/setup/prepare.ps1 -Python <绝对路径>` 检查，再按 [P1 启动说明](p1-backend.md) 配置解释器并重新验收真实任务。
 
 API 控制台没有业务错误。PostgreSQL 控制台出现启动恢复期间的连接失败及 `recognitiondb already exists`，后续已进入可接受连接状态，当前健康检查正常。错误 trace 查询返回 `No traces found`，这不抵消已观察到的任务失败日志。
 

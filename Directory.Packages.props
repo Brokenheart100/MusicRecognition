@@ -8,10 +8,12 @@
   </PropertyGroup>
   <ItemGroup Label="Aspire integrations">
     <!-- Keep aligned with the AppHost SDK in global.json. -->
+    <PackageVersion Include="Aspire.Hosting.Docker" Version="$(AspireIntegrationVersion)" />
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="$(AspireIntegrationVersion)" />
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="$(AspireIntegrationVersion)" />
   </ItemGroup>
   <ItemGroup Label="API and persistence">
+    <PackageVersion Include="CliWrap" Version="3.10.5" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.13" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(EntityFrameworkCoreVersion)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="$(EntityFrameworkCoreVersion)" />

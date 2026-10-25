@@ -61,8 +61,8 @@ SHA-256：`0313799683358aea53c55bfeaa18f75d046432a678b524e0e0098fbfd4063da9`。
 ```powershell
 .tools/poc-python/Scripts/python.exe -m unittest discover -s tests/python
 # URL 从 aspire describe 获取；下列命令会创建真实识别任务。
-.tools/poc-python/Scripts/python.exe scripts/validate-p3-live.py --url http://localhost:<api-port> --source output/backend/bf1b0214d36046e0b95d62992e71ee4c/source.pdf
-.tools/poc-python/Scripts/python.exe scripts/verify-p3-export.py --source output/backend/bf1b0214d36046e0b95d62992e71ee4c/source.pdf
+.tools/poc-python/Scripts/python.exe tests/e2e/validate-p3-live.py --url http://localhost:<api-port> --source output/backend/bf1b0214d36046e0b95d62992e71ee4c/source.pdf
+.tools/poc-python/Scripts/python.exe tests/acceptance/verify-p3-export.py --source output/backend/bf1b0214d36046e0b95d62992e71ee4c/source.pdf
 ```
 
 ## 验收范围与后续校对
@@ -79,7 +79,7 @@ SHA-256：`0313799683358aea53c55bfeaa18f75d046432a678b524e0e0098fbfd4063da9`。
 
 全局快捷键改用 `onKeyStroke`，焦点通过 `useActiveElement` 跟踪，事件生命周期交给 VueUse；保留输入框、可编辑区和弹窗避让，忽略输入法组合事件。页面离开监听也使用 `useEventListener` 自动清理。
 
-浏览器回归脚本：`scripts/vueuse-browser-check.js`。使用受控的两页 API 响应与真实 Minuet PDF 预览，不更改真实识别任务。已验证旧记录恢复、撤销 / 重做、新编辑清空重做、50 步上限、跨页历史隔离、跨页及刷新恢复草稿、保存后移除旧草稿、修订历史隔离、损坏草稿容错、表单焦点保护、帮助与保存快捷键；页面错误为 0。此回归验证前端状态管理，不替代上述六页真实样本的识谱 / 导出验收。
+浏览器回归脚本：`tests/e2e/vueuse-browser-check.js`。使用受控的两页 API 响应与真实 Minuet PDF 预览，不更改真实识别任务。已验证旧记录恢复、撤销 / 重做、新编辑清空重做、50 步上限、跨页历史隔离、跨页及刷新恢复草稿、保存后移除旧草稿、修订历史隔离、损坏草稿容错、表单焦点保护、帮助与保存快捷键；页面错误为 0。此回归验证前端状态管理，不替代上述六页真实样本的识谱 / 导出验收。
 
 API 依据：[useRefHistory](https://vueuse.org/core/userefhistory/)、[useStorage](https://vueuse.org/core/usestorage/)、[onKeyStroke](https://vueuse.org/core/onkeystroke/)。
 
@@ -95,3 +95,11 @@ API 依据：[useRefHistory](https://vueuse.org/core/userefhistory/)、[useStora
 ## 三页样本的导出一致性修复（2026-10-22）
 
 最新《MY HEART WILL GO ON》三页样本已修复无时间偏移渐强符号导致的 MusicXML 整小节丢失，以及无效调号造成的候选音高上下文不一致。全新上传任务完成逐页识谱和整份黑色标注导出：827 个符头全部保留，739 个安全放置，88 个待人工放置，24 个节奏声部待确认。六页 ninelie 保存 OMR 的适配器回归也通过；完整证据、转调处人工校对范围及复跑步骤见 [音高一致性修复报告](pitch-consistency-fix.md)。
+
+## 框选后成组移动修复（2026-10-23）
+
+修复框选能建立多选集合、拖动却只更新一个标注的问题。在原谱视图中左键框选后，拖动任一选中符头或简谱数字，已有位置且未隐藏的选中标注应用相同位移；未放置标注仍由手动放置流程处理。页边界限制作用于整组位移，保留相对间距；方向键和 Shift + 方向键也移动整组。Shift / Ctrl / Command + 点击可增减选择。
+
+批量位置更新通过 Pinia 的单次草稿赋值提交，一次撤销或重做处理整组；拖动途中只显示临时预览，pointercancel 或 Escape 取消后不写入位置。保存后仍使用后端的原谱墨迹与留白检查。
+
+真实浏览器回归使用独立验证乐谱中的 7 个符头：左键框选、从非主选符头拖动、从数字拖动、方向键微调、单次撤销 / 重做、取消拖动和页边界检查均通过；未选中标注没有移动。未保存服务器修订，测试结束撤销本次位置修改。脚本 `tests/e2e/group-move-browser-check.js`，截图 `output/playwright/group-move-desktop.png`；前端类型检查和 ESLint 通过。

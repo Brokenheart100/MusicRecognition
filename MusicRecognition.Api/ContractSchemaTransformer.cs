@@ -17,9 +17,19 @@ public sealed class ContractSchemaTransformer : IOpenApiSchemaTransformer
             schema.Type = JsonSchemaType.String; schema.Format = "binary";
             schema.Properties = null; schema.Required = null; schema.AdditionalPropertiesAllowed = false;
         }
+        if (type == typeof(IFormFileCollection))
+        {
+            schema.Type = JsonSchemaType.Array; schema.Items = new OpenApiSchema { Type=JsonSchemaType.String, Format="binary" };
+            schema.Properties=null; schema.Required=null; schema.MinItems=1; schema.MaxItems=12;
+        }
         if (type.Namespace is "MusicRecognition.Application" or "MusicRecognition.Domain" && schema.Properties is { } props)
         {
             schema.Required = props.Keys.ToHashSet();
+            if (type == typeof(FragmentView)) Enum("state", "Queued", "Processing", "Cancelling", "Cancelled", "Ready", "Failed");
+            if (type == typeof(FragmentPlan)) { if (props["title"] is OpenApiSchema title) { title.MinLength=1; title.MaxLength=120; } LengthRange("fragments",1,12); }
+            if (type == typeof(FragmentSelection)) { Range("sourceIndex",0,11); Range("startMeasure",1,5000); Range("endMeasure",1,5000); }
+            if (type == typeof(FragmentCrop)) { foreach (var name in new[]{"x","y","width","height"}) Range(name,0,1); }
+            if (type == typeof(FragmentRevisionRequest)) Range("expectedRevision",0,int.MaxValue);
             if (type == typeof(Pitch))
             {
                 foreach (var name in new[] { "midi", "diatonic" }) { props.Remove(name); schema.Required.Remove(name); }
@@ -40,11 +50,12 @@ public sealed class ContractSchemaTransformer : IOpenApiSchemaTransformer
                 Range("fontSizePoints", 3, 16);
                 if (props["color"] is OpenApiSchema color) { color.Pattern = "^#[0-9a-fA-F]{6}$"; color.MinLength = color.MaxLength = 7; }
             }
-            foreach (var name in new[] { "version", "expectedRevision", "pageCount", "number", "startMeasure" }) Range(name, 1, null);
+            foreach (var name in new[] { "version", "expectedRevision", "pageCount", "number", "startMeasure" }) Range(name, (type==typeof(FragmentView) && name=="version") || (type==typeof(FragmentRevisionRequest) && name=="expectedRevision") ? 0 : 1, null);
             foreach (var name in new[] { "attempts", "currentRevision" }) Range(name, 0, null);
             void Range(string name, int min, int? max) { if (props.TryGetValue(name, out var p) && p is OpenApiSchema value) { value.Minimum = min.ToString(); value.Maximum = max?.ToString(); } }
             void Enum(string name, params string[] values) { if (props.TryGetValue(name, out var p) && p is OpenApiSchema value) { value.Enum = values.Select(x => (JsonNode)JsonValue.Create(x)!).ToList(); if (value.Type?.HasFlag(JsonSchemaType.Null) == true) value.Enum.Add(null!); } }
             void Length(string name, int length) { if (props.TryGetValue(name, out var p) && p is OpenApiSchema value) value.MinItems = value.MaxItems = length; }
+            void LengthRange(string name, int min, int max) { if (props.TryGetValue(name,out var p) && p is OpenApiSchema value) { value.MinItems=min; value.MaxItems=max; } }
         }
         return Task.CompletedTask;
     }

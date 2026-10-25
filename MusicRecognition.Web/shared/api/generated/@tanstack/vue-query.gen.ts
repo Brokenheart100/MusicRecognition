@@ -3,8 +3,8 @@
 import { queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { cancelScore, createDocumentExport, createRevision, getDocumentExport, getRevision, getScore, getScoreArtifact, getScoreLayout, importScore, type Options, retryScore } from '../sdk.gen';
-import type { CancelScoreData, CancelScoreError, CancelScoreResponse, CreateDocumentExportData, CreateDocumentExportError, CreateDocumentExportResponse, CreateRevisionData, CreateRevisionError, CreateRevisionResponse, GetDocumentExportData, GetDocumentExportError, GetDocumentExportResponse, GetRevisionData, GetRevisionError, GetRevisionResponse, GetScoreArtifactData, GetScoreArtifactError, GetScoreArtifactResponse, GetScoreData, GetScoreError, GetScoreLayoutData, GetScoreLayoutError, GetScoreLayoutResponse, GetScoreResponse, ImportScoreData, ImportScoreError, ImportScoreResponse, RetryScoreData, RetryScoreError, RetryScoreResponse } from '../types.gen';
+import { cancelFragmentProject, cancelScore, createDocumentExport, createFragmentRevision, createRevision, getDocumentExport, getFragmentArtifact, getFragmentImage, getFragmentProject, getRevision, getScore, getScoreArtifact, getScoreLayout, getScoreReflow, importFragments, importScore, type Options, retryFragmentProject, retryScore } from '../sdk.gen';
+import type { CancelFragmentProjectData, CancelFragmentProjectError, CancelFragmentProjectResponse, CancelScoreData, CancelScoreError, CancelScoreResponse, CreateDocumentExportData, CreateDocumentExportError, CreateDocumentExportResponse, CreateFragmentRevisionData, CreateFragmentRevisionError, CreateFragmentRevisionResponse, CreateRevisionData, CreateRevisionError, CreateRevisionResponse, GetDocumentExportData, GetDocumentExportError, GetDocumentExportResponse, GetFragmentArtifactData, GetFragmentArtifactError, GetFragmentArtifactResponse, GetFragmentImageData, GetFragmentImageError, GetFragmentImageResponse, GetFragmentProjectData, GetFragmentProjectError, GetFragmentProjectResponse, GetRevisionData, GetRevisionError, GetRevisionResponse, GetScoreArtifactData, GetScoreArtifactError, GetScoreArtifactResponse, GetScoreData, GetScoreError, GetScoreLayoutData, GetScoreLayoutError, GetScoreLayoutResponse, GetScoreReflowData, GetScoreReflowError, GetScoreReflowResponse, GetScoreResponse, ImportFragmentsData, ImportFragmentsError, ImportFragmentsResponse, ImportScoreData, ImportScoreError, ImportScoreResponse, RetryFragmentProjectData, RetryFragmentProjectError, RetryFragmentProjectResponse, RetryScoreData, RetryScoreError, RetryScoreResponse } from '../types.gen';
 
 /**
  * Upload a PDF (1–30 pages) or image; enqueue recognition.
@@ -189,3 +189,125 @@ export const getScoreLayoutOptions = (options: Options<GetScoreLayoutData>) => q
     },
     queryKey: getScoreLayoutQueryKey(options)
 });
+
+export const getScoreReflowQueryKey = (options: Options<GetScoreReflowData>) => createQueryKey('getScoreReflow', options);
+
+/**
+ * Revision-bound MusicXML and verified note identities for re-engraving.
+ */
+export const getScoreReflowOptions = (options: Options<GetScoreReflowData>) => queryOptions<GetScoreReflowResponse, GetScoreReflowError, GetScoreReflowResponse, ReturnType<typeof getScoreReflowQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getScoreReflow({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getScoreReflowQueryKey(options)
+});
+
+/**
+ * Create an ordered screenshot composition project (1–12 images, 20 MiB total).
+ */
+export const importFragmentsMutation = (options?: Partial<Options<ImportFragmentsData>>): UseMutationOptions<ImportFragmentsResponse, ImportFragmentsError, Options<ImportFragmentsData>> => {
+    const mutationOptions: UseMutationOptions<ImportFragmentsResponse, ImportFragmentsError, Options<ImportFragmentsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await importFragments({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getFragmentProjectQueryKey = (options: Options<GetFragmentProjectData>) => createQueryKey('getFragmentProject', options);
+
+export const getFragmentProjectOptions = (options: Options<GetFragmentProjectData>) => queryOptions<GetFragmentProjectResponse, GetFragmentProjectError, GetFragmentProjectResponse, ReturnType<typeof getFragmentProjectQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getFragmentProject({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getFragmentProjectQueryKey(options)
+});
+
+export const createFragmentRevisionMutation = (options?: Partial<Options<CreateFragmentRevisionData>>): UseMutationOptions<CreateFragmentRevisionResponse, CreateFragmentRevisionError, Options<CreateFragmentRevisionData>> => {
+    const mutationOptions: UseMutationOptions<CreateFragmentRevisionResponse, CreateFragmentRevisionError, Options<CreateFragmentRevisionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createFragmentRevision({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getFragmentArtifactQueryKey = (options: Options<GetFragmentArtifactData>) => createQueryKey('getFragmentArtifact', options);
+
+export const getFragmentArtifactOptions = (options: Options<GetFragmentArtifactData>) => queryOptions<GetFragmentArtifactResponse, GetFragmentArtifactError, GetFragmentArtifactResponse, ReturnType<typeof getFragmentArtifactQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getFragmentArtifact({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getFragmentArtifactQueryKey(options)
+});
+
+export const getFragmentImageQueryKey = (options: Options<GetFragmentImageData>) => createQueryKey('getFragmentImage', options);
+
+export const getFragmentImageOptions = (options: Options<GetFragmentImageData>) => queryOptions<GetFragmentImageResponse, GetFragmentImageError, GetFragmentImageResponse, ReturnType<typeof getFragmentImageQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getFragmentImage({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getFragmentImageQueryKey(options)
+});
+
+export const retryFragmentProjectMutation = (options?: Partial<Options<RetryFragmentProjectData>>): UseMutationOptions<RetryFragmentProjectResponse, RetryFragmentProjectError, Options<RetryFragmentProjectData>> => {
+    const mutationOptions: UseMutationOptions<RetryFragmentProjectResponse, RetryFragmentProjectError, Options<RetryFragmentProjectData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await retryFragmentProject({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const cancelFragmentProjectMutation = (options?: Partial<Options<CancelFragmentProjectData>>): UseMutationOptions<CancelFragmentProjectResponse, CancelFragmentProjectError, Options<CancelFragmentProjectData>> => {
+    const mutationOptions: UseMutationOptions<CancelFragmentProjectResponse, CancelFragmentProjectError, Options<CancelFragmentProjectData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await cancelFragmentProject({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};

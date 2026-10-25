@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MusicRecognition.Infrastructure;
+using MusicRecognition.Application;
 using Xunit;
 
 public sealed class ToolFailureLoggingTests
@@ -34,7 +35,9 @@ public sealed class ToolFailureLoggingTests
             var id = Guid.NewGuid(); Directory.CreateDirectory(files.JobDirectory(id));
             if (scenario == "stale") await File.WriteAllTextAsync(Path.Combine(files.JobDirectory(id), "error.json"), "{\"code\":\"stale-error\",\"message\":\"obsolete cause\"}");
             var logger = new RecordingLogger<ToolEngine>();
-            var engine = new ToolEngine(options, files, logger);
+            var parent = new ScoreJob { Id = Guid.NewGuid(), FileName = "测试钢琴谱.pdf", PageCount = 6 };
+            var child = new ScoreJob { Id = id, ParentId = parent.Id, PageNumber = 2, FileName = "Page 2.pdf", PagesPrepared = true };
+            var engine = new ToolEngine(options, files, logger, new DiagnosticScoreRepository(parent, child));
             var error = await Assert.ThrowsAsync<ToolFailure>(() => engine.PrepareDocumentAsync(id, ".pdf", CancellationToken.None));
             Assert.Equal(scenario == "report" ? "pitch-consistency-failed" : "tool-failed", error.Code);
             Assert.Contains(scenario == "report" ? "interId=42" : "ModuleNotFoundError", error.DiagnosticReason!);
@@ -44,6 +47,8 @@ public sealed class ToolFailureLoggingTests
             Assert.Equal(7, entry["ExitCode"]);
             Assert.Equal(id, entry["ScoreId"]);
             Assert.Equal("prepare", entry["Operation"]);
+            Assert.Equal("测试钢琴谱.pdf - 第2页", entry["ScoreName"]);
+            Assert.Equal("PDF 拆页", entry["OperationName"]);
             Assert.Equal(error.DiagnosticReason, entry["FailureReason"]);
             Assert.True(File.Exists((string)entry["DiagnosticLog"]!));
             Assert.Contains("diagnostic_fixture", (string)entry["StderrTail"]!);

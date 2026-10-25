@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 import unittest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts' / 'poc'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts' / 'runtime'))
 from annotate import draw_pdf_labels, label_sizes_from, validate_style
 from pypdf import PdfReader
 from reportlab.pdfgen import canvas
@@ -12,6 +12,7 @@ from reportlab.pdfgen import canvas
 class AnnotationStyleTests(unittest.TestCase):
     def test_default_and_invalid_styles(self):
         self.assertEqual(validate_style({}), {'fontSizePoints': None, 'color': '#000000'})
+        self.assertEqual(validate_style({'fontSizePoints': None})['fontSizePoints'], None)
         for style in ({'fontSizePoints': 2}, {'fontSizePoints': 17}, {'fontSizePoints': float('nan')},
                       {'fontSizePoints': True}, {'color': 'red'}, {'color': '#000000\n'}):
             with self.subTest(style=style), self.assertRaises(ValueError):
@@ -35,7 +36,7 @@ class AnnotationStyleTests(unittest.TestCase):
         self.assertTrue(any(operator == b'c' for _, operator in operations), 'Octave dots must use the same fill')
 
     def test_per_note_colors_and_sizes(self):
-        self.assertEqual(label_sizes_from({'7': {'style': {'fontSizePoints': 10}}, '8': {}, '9': {'style': {'fontSizePoints': 2}}}, 1 / 3), {7: 30})
+        self.assertEqual(label_sizes_from({'7': {'style': {'fontSizePoints': 10}}, '8': {}, '9': {'style': {'fontSizePoints': 2}}, '10': {'style': {'fontSizePoints': None}}}, 1 / 3), {7: 30, 10: None})
         output = io.BytesIO()
         painter = canvas.Canvas(output, pagesize=(100, 100))
         from reportlab.pdfbase import pdfmetrics

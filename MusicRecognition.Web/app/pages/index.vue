@@ -5,7 +5,7 @@ const store = useWorkspaceStore()
 const activeElement = useActiveElement()
 const editingFocus = computed(() => !!activeElement.value?.closest('input,textarea,select,[role="combobox"],[role="listbox"],[role="option"],[role="menu"],[role="dialog"],[contenteditable]:not([contenteditable="false"])'))
 const fileInput = ref<HTMLInputElement>()
-const canvas = ref<{ beginPlaceCurrent: () => void; nextPending: () => void }>()
+const canvas = ref<{ beginPlaceCurrent: () => void; cancelInteraction: () => void; nextPending: () => void; moveSelection: (dx: number, dy: number) => void }>()
 const sidebar = ref(false)
 const collapsed = ref(false)
 const inspector = ref(true)
@@ -16,6 +16,20 @@ const labels = ref(true)
 const scoreView = ref('original')
 const staff = ref('all')
 const voice = ref('all')
+const shortcutGroups = [
+  { title: '文件与查看', items: [
+    ['导入乐谱', 'Ctrl / ⌘ O'], ['保存修改', 'Ctrl / ⌘ S'], ['导出本页 PDF（原谱视图）', 'Ctrl / ⌘ Shift E'],
+    ['放大 / 缩小谱面', '+ / −'], ['恢复 100% 大小', '0'], ['上一页 / 下一页', '[ / ]'],
+    ['显示 / 隐藏简谱标注', 'L'], ['展开 / 收起校对面板', 'I'], ['展开 / 收起乐谱库', 'B'],
+  ] },
+  { title: '原谱校对', items: [
+    ['下一个 / 上一个音符', 'J / K'], ['全选当前筛选内的音符', 'Ctrl / ⌘ A'], ['取消选择或放置', 'Esc'],
+    ['微调选中标注', '方向键'], ['快速微调（10 像素）', 'Shift + 方向键'],
+    ['隐藏 / 显示选中标注', 'Delete / Backspace'], ['下一个待放置音符', 'N'], ['放置当前选中标注', 'P'],
+    ['撤销', 'Ctrl / ⌘ Z'], ['重做', 'Ctrl Y / Ctrl / ⌘ Shift Z'],
+  ] },
+  { title: '帮助', items: [['打开 / 关闭使用指南', 'Ctrl / ⌘ K'], ['打开使用指南', '?']] },
+]
 const search = ref('')
 const recent = computed(() => store.recent.filter(item => item.name.toLowerCase().includes(search.value.toLowerCase())))
 const staffOptions = computed(() => [{ label: '全部谱表', value: 'all' }, ...[...new Set(store.notes.map(n => n.staff))].sort((a, b) => a - b).map(n => ({ label: `谱表 ${n}`, value: String(n) }))])
@@ -75,33 +89,61 @@ async function drop(event: DragEvent) {
 }
 async function open(item: (typeof store.recent)[number]) { sidebar.value = false; staff.value = 'all'; voice.value = 'all'; await store.open(item) }
 function moveSelected(dx: number, dy: number) {
-  if (!store.selectedId || !store.editable) return
-  const a = store.annotations?.annotations.find(n => n.noteId === store.selectedId), p = store.placement(store.selectedId)
-  const x = p?.x ?? a?.labelBounds?.[0], y = p?.y ?? a?.labelBounds?.[1]
-  if (x != null && y != null) store.position(store.selectedId, x + dx, y + dy)
+  canvas.value?.moveSelection(dx, dy)
 }
 function keyboard(event: KeyboardEvent) {
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); help.value = !help.value; return }
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's' && !help.value) { event.preventDefault(); void store.save(); return }
-  if (help.value || editingFocus.value) return
-  if (scoreView.value === 'musicxml') return
-  const mod = event.metaKey || event.ctrlKey
-  if (mod && event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) store.redo(); else store.undo(); return }
-  if (mod && event.key.toLowerCase() === 'y') { event.preventDefault(); store.redo(); return }
+  const mod = event.metaKey || event.ctrlKey, key = event.key.toLowerCase()
+  // Saving/help remain available from fields. Text editing retains native
+  // select-all and undo, and other dialogs/popovers keep their own keyboard flow.
+  if (mod && !event.altKey && !event.shiftKey && key === 'k') {
+    event.preventDefault(); if (!event.repeat) help.value = !help.value; return
+  }
+  if (help.value || activeElement.value?.closest('[role="dialog"],[role="listbox"],[role="menu"]')) return
+  if (mod && !event.altKey && !event.shiftKey && key === 's') { event.preventDefault(); if (!event.repeat) void store.save(); return }
+  if (editingFocus.value || event.altKey) return
+  if (mod) {
+    if (key === 'o' && !event.shiftKey) { event.preventDefault(); if (!event.repeat && !store.uploading) pick(); return }
+    if (key === 'e' && event.shiftKey && scoreView.value === 'original' && store.revision) {
+      event.preventDefault(); if (!event.repeat) void store.download(); return
+    }
+    if (scoreView.value !== 'original' || !store.revision) return
+    if (key === 'z') { event.preventDefault(); if (!event.repeat) { if (event.shiftKey) store.redo(); else store.undo() }; return }
+    if (key === 'y' && !event.shiftKey) { event.preventDefault(); if (!event.repeat) store.redo(); return }
+    if (key === 'a' && !event.shiftKey) { event.preventDefault(); if (!event.repeat) store.select(filteredNotes().map(n => n.id)); return }
+    return // Never interpret browser shortcuts such as Ctrl+J as note navigation.
+  }
+  if (key === '?' && !event.repeat) { event.preventDefault(); help.value = true; return }
+  if (!store.active) return
+  if (event.key === 'Escape') { canvas.value?.cancelInteraction(); store.clearSelection(); return }
+  if (!event.repeat) {
+    if (key === 'b') { event.preventDefault(); if (window.innerWidth >= 1020) collapsed.value = !collapsed.value; else sidebar.value = !sidebar.value; return }
+    if (key === 'i' && store.revision && scoreView.value === 'original') { event.preventDefault(); inspector.value = !inspector.value; return }
+    if (key === 'l' && store.revision && scoreView.value !== 'musicxml') { event.preventDefault(); labels.value = !labels.value; return }
+    if ((key === '[' || key === ']') && store.multiPage) { event.preventDefault(); void store.selectPage(store.pageNumber + (key === ']' ? 1 : -1)); return }
+  }
   if (!store.revision) return
+  if (['+', '=', '-', '0'].includes(key)) {
+    event.preventDefault(); zoom.value = key === '0' ? 100 : Math.max(50, Math.min(200, zoom.value + (key === '-' ? -25 : 25))); return
+  }
+  if (scoreView.value !== 'original') return
   const delta = event.shiftKey ? 10 : 1
   const direction: Record<string, [number, number]> = { ArrowLeft: [-delta, 0], ArrowRight: [delta, 0], ArrowUp: [0, -delta], ArrowDown: [0, delta] }
   if (store.selectedId && direction[event.key]) { event.preventDefault(); moveSelected(...direction[event.key]!); return }
-  if (['j', 'k'].includes(event.key.toLowerCase())) {
+  if (['j', 'k'].includes(key) && !event.repeat) {
     event.preventDefault()
-    const notes = store.notes.filter(n => (staff.value === 'all' || String(n.staff) === staff.value) && (voice.value === 'all' || String(n.voice) === voice.value))
+    const notes = filteredNotes()
     const index = notes.findIndex(n => n.id === store.selectedId)
-    store.selectedId = notes[(index + (event.key.toLowerCase() === 'j' ? 1 : -1) + notes.length) % notes.length]?.id ?? null
+    const next = index < 0 ? (key === 'j' ? 0 : notes.length - 1) : (index + (key === 'j' ? 1 : -1) + notes.length) % notes.length
+    store.select(notes[next] ? [notes[next]!.id] : [])
     inspector.value = true
   }
-  if ((event.key === 'Delete' || event.key === 'Backspace') && store.selectedId) { event.preventDefault(); store.hide(store.selectedId) }
-  if (event.key === 'Escape') store.selectedId = null
+  if ((event.key === 'Delete' || event.key === 'Backspace') && store.selectedId) {
+    event.preventDefault(); if (!event.repeat) store.hideMany(store.selection.length ? store.selection : [store.selectedId])
+  }
+  if (key === 'n' && !event.repeat) { event.preventDefault(); canvas.value?.nextPending() }
+  if (key === 'p' && store.selectedId && store.editable && !event.repeat) { event.preventDefault(); canvas.value?.beginPlaceCurrent() }
 }
+function filteredNotes() { return store.notes.filter(n => (staff.value === 'all' || String(n.staff) === staff.value) && (voice.value === 'all' || String(n.voice) === voice.value)) }
 function beforeLeave(event: BeforeUnloadEvent) { if (store.dirty) { event.preventDefault(); event.returnValue = '' } }
 onKeyStroke(event => !event.defaultPrevented && !event.isComposing, keyboard)
 useEventListener('beforeunload', beforeLeave)
@@ -119,7 +161,8 @@ watch(() => store.selectedId, value => { if (value) inspector.value = true })
     <aside class="library-sidebar glass" aria-label="乐谱库">
       <button class="brand" aria-label="谱间，返回工作台" @click="store.home()"><img src="/favicon.svg" alt="" width="38"
           height="38"><span>谱间<small>PIANO NOTES</small></span></button>
-      <UButton icon="i-lucide-plus" label="导入乐谱" size="lg" class="new-score" :loading="store.uploading" @click="pick" />
+      <UButton icon="i-lucide-plus" label="导入乐谱" size="lg" class="new-score" :loading="store.uploading" aria-keyshortcuts="Control+O Meta+O" title="导入乐谱（Ctrl / ⌘ O）" @click="pick" />
+      <UButton to="/fragments" icon="i-lucide-combine" label="图片片段拼谱" color="neutral" variant="soft" class="mx-5 mb-3" />
       <button class="sidebar-home" :class="{ active: !store.active }" @click="store.home(); sidebar = false">
         <UIcon name="i-lucide-layout-dashboard" /><span>工作台</span>
         <UIcon name="i-lucide-chevron-right" class="tiny" />
@@ -147,7 +190,7 @@ watch(() => store.selectedId, value => { if (value) inspector.value = true })
         <div class="quiet-note"><span class="quiet-lines">♩</span>
           <p>从读谱，到奏响。<small>每一次练习，都值得从容。</small></p>
         </div><button class="help-link" @click="help = true">
-          <UIcon name="i-lucide-circle-help" /><span>使用指南与快捷键</span><span>⌘ K</span>
+          <UIcon name="i-lucide-circle-help" /><span>使用指南与快捷键</span><span>Ctrl / ⌘ K</span>
         </button>
         <p class="local-note">
           <UIcon name="i-lucide-lock-keyhole" /> 乐谱记录保存在本机浏览器
@@ -168,7 +211,7 @@ watch(() => store.selectedId, value => { if (value) inspector.value = true })
           </div>
         </div>
         <div class="topbar-actions"><span class="workspace-tag"><span class="status-dot" /> 为专注练习而作</span>
-          <UTooltip text="使用指南">
+          <UTooltip text="使用指南（Ctrl / ⌘ K）">
             <UButton icon="i-lucide-book-open" color="neutral" variant="ghost" aria-label="打开使用指南"
               @click="help = true" />
           </UTooltip><span class="avatar" aria-label="本机工作空间">谱</span>
@@ -270,11 +313,11 @@ watch(() => store.selectedId, value => { if (value) inspector.value = true })
           </div>
           <div class="document-actions">
             <UButton v-if="store.revision" icon="i-lucide-check" label="保存修改" :loading="store.saving"
-              :disabled="!store.dirty || !store.editable" :title="saveHint" class="save-button" @click="store.save()" />
-            <UButton icon="i-lucide-download" :label="store.multiPage ? '导出本页' : '导出 PDF'" color="neutral"
+              :disabled="!store.dirty || !store.editable" :title="saveHint" aria-keyshortcuts="Control+S Meta+S" class="save-button" @click="store.save()" />
+            <UButton v-if="scoreView !== 'reflow'" icon="i-lucide-download" :label="store.multiPage ? '导出本页' : '导出 PDF'" color="neutral"
               variant="outline" :disabled="store.revision?.state !== 'Ready' || store.dirty"
               @click="store.download()" />
-            <UButton v-if="store.multiPage" icon="i-lucide-files"
+            <UButton v-if="store.multiPage && scoreView !== 'reflow'" icon="i-lucide-files"
               :label="store.documentExport?.state === 'Ready' ? '下载整份 PDF' : store.documentExport?.state === 'Failed' ? '重试整份导出' : '导出整份 PDF'"
               color="primary"
               :loading="store.documentExport?.state === 'Queued' || store.documentExport?.state === 'Processing'"
@@ -327,7 +370,7 @@ watch(() => store.selectedId, value => { if (value) inspector.value = true })
             <div class="sheet-toolbar glass">
               <div class="sheet-toolbar-left"><span class="paper-icon">
                   <UIcon name="i-lucide-file-music" />
-                </span><span class="page-label">{{ scoreView === 'musicxml' ? 'MusicXML' : '原谱叠加' }} <small>{{ String(store.pageNumber).padStart(2, '0') }} / {{
+                </span><span class="page-label">{{ scoreView === 'reflow' ? '重新排版' : scoreView === 'musicxml' ? 'MusicXML' : '原谱叠加' }} <small>{{ String(store.pageNumber).padStart(2, '0') }} / {{
                   String(store.documentJob?.pageCount ?? 1).padStart(2, '0') }}</small></span><span
                   v-if="store.revision" class="version-tag">v{{ store.revision.version }}</span>
                 <UButton v-if="store.historical" size="xs" color="neutral" variant="soft" label="回到最新版"
@@ -354,6 +397,7 @@ watch(() => store.selectedId, value => { if (value) inspector.value = true })
             <div v-if="store.revision" class="flex flex-wrap gap-2 px-4 py-3" aria-label="乐谱视图">
               <UButton label="原谱标注" :variant="scoreView === 'original' ? 'soft' : 'ghost'" color="neutral" :aria-pressed="scoreView === 'original'" @click="scoreView = 'original'" />
               <UButton label="MusicXML 预览" :variant="scoreView === 'musicxml' ? 'soft' : 'ghost'" color="neutral" :aria-pressed="scoreView === 'musicxml'" @click="scoreView = 'musicxml'" />
+              <UButton label="重排辅助谱" :variant="scoreView === 'reflow' ? 'soft' : 'ghost'" color="neutral" :aria-pressed="scoreView === 'reflow'" @click="scoreView = 'reflow'" />
             </div>
             <div v-if="store.revision && scoreView === 'original'" class="score-filters">
               <USelect v-model="staff" :items="staffOptions" size="sm" aria-label="选择谱表" />
@@ -364,6 +408,7 @@ watch(() => store.selectedId, value => { if (value) inspector.value = true })
             </div>
             <ClientOnly>
               <MusicXmlPreview v-if="scoreView === 'musicxml' && store.revision" :key="store.currentJobId" :zoom="zoom" />
+              <ReflowScore v-else-if="scoreView === 'reflow' && store.revision" :key="store.currentJobId" :zoom="zoom" :labels="labels" @labels="labels = $event" @select="id => { store.selectedId = id; scoreView = 'original' }" />
               <ScoreCanvas v-else ref="canvas" :zoom="zoom" :labels="labels" :staff="staff" :voice="voice" /><template
                 #fallback>
                 <div class="preview-loading">正在铺开乐谱</div>
@@ -404,9 +449,11 @@ watch(() => store.selectedId, value => { if (value) inspector.value = true })
               <p>每次保存都有独立版本，导出与已保存的版本一致。本机记录包含访问凭据，清理浏览器数据后请重新上传。</p>
             </li>
           </ol>
-          <div class="shortcut-grid"><span>下一个 / 上一个音符</span><kbd>J /
-              K</kbd><span>微调标注位置</span><kbd>方向键</kbd><span>保存修改</span><kbd>⌘ / Ctrl S</kbd><span>撤销 / 重做</span><kbd>⌘ Z
-              / ⇧ ⌘ Z</kbd><span>隐藏 / 显示标注</span><kbd>Delete</kbd></div>
+          <section v-for="group in shortcutGroups" :key="group.title" class="shortcut-section" :aria-label="group.title + '快捷键'">
+            <h3>{{ group.title }}</h3>
+            <div class="shortcut-grid"><template v-for="[label, keys] in group.items" :key="label"><span>{{ label }}</span><kbd>{{ keys }}</kbd></template></div>
+          </section>
+          <p class="guide-note">Ctrl 适用于 Windows，⌘ 适用于 macOS。输入框、下拉菜单和弹窗内保留原生键盘操作；保存与帮助仍可在输入框中使用。全选和批量操作只作用于当前页，翻页保留未保存草稿。</p>
           <p class="guide-note">首调需确认主音；自然小调的主音记为 6。小节编号从本页第一物理小节开始，含弱起小节。自动识别不等于人工校对，数字表示音高，不表示指法。</p><a
             href="/samples/README.md" target="_blank" rel="noopener" class="sample-credit">示例乐谱来源与许可
             <UIcon name="i-lucide-arrow-up-right" />

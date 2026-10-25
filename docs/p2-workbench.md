@@ -42,7 +42,7 @@ P2 对后端增加了 `AnnotationPlacement(Hidden, X, Y)`、`Note.Style` 与 Rev
 先按 [P1 文档](p1-backend.md) 配好 Python、Audiveris、JDK、Poppler 和字体。新增 Python 依赖需在同一识谱环境安装。
 
 ```powershell
-& $env:MUSICRECOGNITION_PYTHON -m pip install -r scripts/poc/requirements.txt
+& $env:MUSICRECOGNITION_PYTHON -m pip install -r scripts/setup/requirements.txt
 npm ci --prefix MusicRecognition.Web
 dotnet build MusicRecognition.slnx
 aspire start --apphost MusicRecognition.AppHost/MusicRecognition.AppHost.csproj --non-interactive
@@ -98,7 +98,7 @@ Revision 2 的实际 PDF 经 Poppler 独立渲染复核：10,384 个变化像素
 - [桌面入口](../output/playwright/p2-welcome-desktop.png)、[桌面校对](../output/playwright/p2-editor-1440.png)、[手机校对](../output/playwright/p2-editor-390.png)。
 - [页面下载的 Revision 4 PDF](../output/pdf/p2-minuet-reviewed-r4.pdf)。此样本含人为测试改音，不能当作教学校订版。
 
-复跑浏览器使用 Playwright CLI，而非另建测试框架：`scripts/p2-browser-acceptance.js` 从新示例 Revision 1 开始；`p2-editor-check.js` 接着检查 Revision 2；`p2-geometry-check.js` 检查当前 PDF；`p2-responsive-check.js` 检查尺寸。用 `playwright-cli run-code --filename ...` 执行；本机没有 Chrome，验证使用 `--browser msedge`。脚本依赖真实后端和工具，运行会创建真实任务 / 修订。
+复跑浏览器使用 Playwright CLI，而非另建测试框架：`tests/e2e/p2-browser-acceptance.js` 从新示例 Revision 1 开始；`p2-editor-check.js` 接着检查 Revision 2；`p2-geometry-check.js` 检查当前 PDF；`p2-responsive-check.js` 检查尺寸。用 `playwright-cli run-code --filename ...` 执行；本机没有 Chrome，验证使用 `--browser msedge`。脚本依赖真实后端和工具，运行会创建真实任务 / 修订。
 
 ## 审计与未覆盖项
 
