@@ -1,4 +1,7 @@
 /* Secondary controls and compact overrides: scan settings, page navigation. */
+/* 次级控件与紧凑样式：扫描增强设置、识别操作按钮、页码导航等小部件。 */
+/* 这些样式只服务工作台右侧的校对面板，和欢迎页的样式分开维护。 */
+/* "扫描增强"设置行：左边文字、右边开关，整行可点击。 */
 .scan-enhancement {
     display: flex;
     align-items: flex-start;
@@ -10,16 +13,19 @@
     cursor: pointer
 }
 
+/* 识别引擎选择行：内容垂直居中，但整行不显示手型（只有下拉框能点）。 */
 .scan-engine {
     align-items: center;
     cursor: default
 }
 
+/* 引擎下拉框靠右（margin-left auto），宽度随文字。 */
 .scan-engine .scan-engine-select {
     width: auto;
     margin-left: auto
 }
 
+/* "实验性"小徽标：浅紫底、圆角、小字号。 */
 .scan-enhancement em {
     margin-left: 5px;
     border-radius: 5px;
@@ -30,6 +36,7 @@
     font-style: normal
 }
 
+/* 设置下方的状态说明（比如增强是否可用），小字灰色。 */
 .enhancement-status {
     margin: 8px 0 0;
     color: #66718b;
@@ -37,6 +44,7 @@
     line-height: 1.6
 }
 
+/* 识别操作按钮组：放不下时自动换行，按钮间距 8px。 */
 .recognition-actions {
     display: flex;
     flex-wrap: wrap;
@@ -45,6 +53,7 @@
     margin: 0 5px 12px
 }
 
+/* 页码导航卡片：圆角边框，里面横排每一页的按钮。 */
 .page-navigation {
     margin: 0 5px 20px;
     padding: 15px 17px;
@@ -52,6 +61,7 @@
     border-radius: 15px
 }
 
+/* 卡片标题行：左边"页码"，右边当前页/总页数。 */
 .page-navigation-heading {
     display: flex;
     align-items: center;
@@ -61,11 +71,13 @@
     font-size: var(--fs-md)
 }
 
+/* 标题里的数字用深色加粗，比说明文字更显眼。 */
 .page-navigation-heading strong {
     color: #39465f;
     font-weight: 600
 }
 
+/* 页码按钮横向排列，超出宽度时可横向滚动；底部留 5px 给滚动条。 */
 .page-navigation-list {
     display: flex;
     gap: 8px;
@@ -73,6 +85,7 @@
     padding: 1px 1px 5px
 }
 
+/* 单个页码按钮：左页码、右状态，最窄 88px。 */
 .page-navigation-item {
     display: flex;
     min-width: 88px;
@@ -93,6 +106,7 @@
     background: var(--surface)
 }
 
+/* 当前正在校对的那一页：紫色边框 + 淡紫底 + 轻阴影。 */
 .page-navigation-item.active {
     border-color: #9290e4;
     background: #f2f1ff;
@@ -100,22 +114,26 @@
     box-shadow: 0 3px 10px #726fd315
 }
 
+/* 识别失败的页：边框和文字用警告色（砖红）。 */
 .page-navigation-item.failed {
     border-color: #e9c5bd;
     color: var(--warning)
 }
 
+/* 页码数字：13px 加粗，等宽数字防止位数变化时宽度跳动。 */
 .page-navigation-number {
     font-size: 13px;
     font-weight: 600;
     font-variant-numeric: tabular-nums
 }
 
+/* 页码后的状态文字（如"识别中"），不换行。 */
 .page-navigation-state {
     font-size: var(--fs-sm);
     white-space: nowrap
 }
 
+/* 导出提示和导出错误共用小字样式；错误时文字改成警告色。 */
 .page-export-hint,
 .page-export-error {
     margin: 8px 0 0;
@@ -127,6 +145,7 @@
     color: var(--warning)
 }
 
+/* 窄屏（700px 以下）：缩小按钮组间距和卡片内边距，让页码条挤得下。 */
 @media(max-width:700px) {
     .recognition-actions {
         margin: 0 0 12px

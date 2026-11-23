@@ -1,16 +1,21 @@
+/* 响应式补充文件：宽屏、平板、手机的断点调整，以及"减少动态效果"的无障碍适配。 */
+/* 断点（breakpoint）指屏幕宽度分界：1700px、1250px、1020px、700px，越往下越接近手机。 */
 /* Shared responsive and reduced-motion overrides. */
+/* 旋转动画：从 0 度转到 360 度，加载图标用它一直转圈。 */
 @keyframes spin {
     to {
         transform: rotate(360deg);
     }
 }
 
+/* 呼吸动画：中途降到 35% 透明度再回来，用来表示"正在处理"。 */
 @keyframes pulse {
     50% {
         opacity: .35;
     }
 }
 
+/* 超宽屏（1700px 起）：放大欢迎页留白、两栏间距和示意谱纸。 */
 @media (min-width: 1700px) {
     .welcome {
         padding-top: 80px;
@@ -35,6 +40,7 @@
     }
 }
 
+/* 中宽屏（1250px 以下）：收紧欢迎页留白和两栏间距，小装饰适当缩小。 */
 @media (max-width: 1250px) {
     .welcome {
         padding: 44px 35px 0;
@@ -49,6 +55,7 @@
         width: 270px;
     }
 
+    /* 说明徽标往左移，避免超出画面被裁掉。 */
     .floating-badge {
         left: -5%;
         bottom: 38px;
@@ -86,20 +93,26 @@
         gap: 6px;
     }
 
+    /* 窄屏下页码旁的小字（如总页数）隐藏，只留页码数字。 */
     .page-label small {
         display: none;
     }
 
+    /* 背景大序号在这个宽度下隐藏，避免和文字重叠。 */
     .feature-number {
         display: none;
     }
 }
 
+/* 平板/窄屏（1020px 以下）：侧栏改抽屉、检查器改浮层、顶栏变矮。 */
 @media (max-width: 1020px) {
+
+    /* 主布局收成单列，侧栏不再占一列宽度。 */
     .workspace {
         grid-template-columns: minmax(0, 1fr);
     }
 
+    /* 侧栏改为固定定位到屏幕左侧，默认用 translateX(-100%) 移出屏幕外。 */
     .library-sidebar {
         position: fixed;
         left: 0;
@@ -109,10 +122,12 @@
         background: #f9fafff5;
     }
 
+    /* 打开侧栏时滑回原位（translateX(0)），配合 0.25 秒过渡。 */
     .sidebar-open .library-sidebar {
         transform: translateX(0);
     }
 
+    /* 遮罩铺满全屏；29 是层级，低于侧栏、高于内容。 */
     .sidebar-open .sidebar-scrim {
         display: block;
         position: fixed;
@@ -122,14 +137,17 @@
         backdrop-filter: blur(3px);
     }
 
+    /* 宽屏才用的"折叠侧栏"按钮在此隐藏。 */
     .desktop-collapse {
         display: none;
     }
 
+    /* 手机端的"打开侧栏"按钮改为显示。 */
     .mobile-sidebar {
         display: inline-flex;
     }
 
+    /* 顶栏从 89px 降到 75px，高度省下来给内容。 */
     .topbar {
         height: 75px;
         padding: 0 28px;
@@ -156,6 +174,7 @@
         grid-template-columns: minmax(0, 1fr);
     }
 
+    /* 检查器改成固定浮层：贴右侧、宽 285px、半透明白底加大投影。 */
     .editor-layout>.inspector {
         display: none;
         position: fixed;
@@ -167,18 +186,22 @@
         box-shadow: 0 10px 40px #34416d20;
     }
 
+    /* 点开检查器时才显示这个浮层。 */
     .inspector-open .editor-layout>.inspector {
         display: block;
     }
 
+    /* 浮层需要关闭按钮，这里由隐藏改为显示。 */
     .inspector-close {
         display: inline-flex;
     }
 
+    /* 浮层内容区高度改成"一屏高减去 230px"。 */
     .inspector-content {
         max-height: calc(100dvh - 230px);
     }
 
+    /* 谱面可视区高度改成"一屏高减去 290px"（留给顶栏和工具栏）。 */
     .score-stage {
         max-height: calc(100dvh - 290px);
     }
@@ -188,6 +211,7 @@
     }
 }
 
+/* 手机竖屏（700px 以下）：欢迎页单列、工具栏压缩、浮层更窄。 */
 @media (max-width: 700px) {
     .topbar {
         padding: 0 18px;
@@ -206,6 +230,7 @@
         gap: 10px;
     }
 
+    /* 面包屑文字最宽 165px，超出用省略号。 */
     .breadcrumb [data-slot="linkLabel"] {
         max-width: 165px;
     }
@@ -228,6 +253,7 @@
         font-size: var(--fs-md);
     }
 
+    /* 版本号在手机上隐藏，给标题让位。 */
     .welcome-edition {
         display: none;
     }
@@ -245,6 +271,7 @@
         padding: 22px 26px;
     }
 
+    /* 示意谱面区占满宽度，并裁掉超出的装饰，避免横向滚动条。 */
     .preview-scene {
         width: 100%;
         max-width: 430px;
@@ -262,6 +289,7 @@
         bottom: 22px;
     }
 
+    /* 功能条从三列改成一列，垂直排列。 */
     .feature-strip {
         grid-template-columns: 1fr;
         gap: 23px;
@@ -292,6 +320,7 @@
         padding: 25px 12px 0;
     }
 
+    /* 文档标题和操作按钮由横排改成竖排，按钮靠右。 */
     .document-header {
         align-items: start;
         gap: 13px;
@@ -318,6 +347,7 @@
         min-height: 34px;
     }
 
+    /* 手机上再减去顶栏和文档头的空间，谱面区高度取"一屏高减 430px"。 */
     .score-stage {
         max-height: calc(100dvh - 430px);
         padding-top: 22px;
@@ -334,6 +364,7 @@
         gap: 5px;
     }
 
+    /* 版本标签在手机上隐藏。 */
     .version-tag {
         display: none;
     }
@@ -369,6 +400,7 @@
         padding: 6px;
     }
 
+    /* 浮层宽度取 285px 和"屏宽减 28px"里较小的那个，保证不顶到边缘。 */
     .editor-layout>.inspector {
         top: 202px;
         right: 10px;
@@ -406,6 +438,7 @@
     }
 }
 
+/* 系统开启"减少动态效果"时，把动画和过渡压到 0.01 毫秒，几乎瞬间完成。 */
 @media (prefers-reduced-motion: reduce) {
 
     *,

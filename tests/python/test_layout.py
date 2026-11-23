@@ -93,6 +93,49 @@ class BelowFirstLayoutTests(unittest.TestCase):
         self.assertEqual('below', result[1]['placementDirection'])
 
 
+class FallbackLayoutTests(unittest.TestCase):
+    def run_layout(self, notes, mask, staves=None):
+        with patch('annotate.label_geometry', return_value={'width': 16, 'height': 16, 'fontSize': 30}):
+            return layout(notes, mask, 10, Path('unused-font'), font_size=30, staves=staves)
+
+    def test_far_empty_space_is_used_after_normal_candidates_fail(self):
+        mask = np.ones((300, 220), dtype=bool)
+        mask[180:200, 45:85] = False
+        result = self.run_layout([note()], mask)[0]
+        self.assertEqual('placed', result['status'])
+        self.assertEqual('fallback', result['placementDirection'])
+        self.assertEqual(30, result['fontSize'])
+        self.assertGreaterEqual(result['labelBounds'][1], 180)
+
+    def test_fallback_keeps_a_chord_in_one_column(self):
+        mask = np.ones((300, 220), dtype=bool)
+        mask[180:230, 45:85] = False
+        result = self.run_layout([note(1, y=50, chord=7), note(2, y=65, chord=7)], mask)
+        self.assertEqual(['fallback', 'fallback'], [n['placementDirection'] for n in result])
+        self.assertEqual(result[0]['labelBounds'][0], result[1]['labelBounds'][0])
+        self.assertLess(result[0]['labelBounds'][3], result[1]['labelBounds'][1])
+
+    def test_fallback_does_not_cross_into_the_neighboring_staff(self):
+        staves = [{'id': 1, 'system': 1, 'left': 10, 'right': 210, 'top': [40, 40], 'bottom': [80, 80]},
+                  {'id': 2, 'system': 1, 'left': 10, 'right': 210, 'top': [100, 100], 'bottom': [140, 140]}]
+        mask = np.ones((220, 220), dtype=bool)
+        mask[150:170, 45:85] = False
+        result = self.run_layout([note()], mask, staves)[0]
+        self.assertEqual('needs-manual-placement', result['status'])
+        self.assertIsNone(result['labelBounds'])
+
+    def test_fallback_does_not_move_an_already_placed_note(self):
+        mask = np.ones((300, 220), dtype=bool)
+        mask[80:100, 45:85] = False
+        mask[180:200, 120:160] = False
+        first, second = self.run_layout([note(1, x=60), note(2, x=130)], mask)
+        self.assertEqual('below', first['placementDirection'])
+        self.assertEqual('fallback', second['placementDirection'])
+        self.assertGreaterEqual(second['labelBounds'][1], 180)
+        a, b = first['labelBounds'], second['labelBounds']
+        self.assertFalse(a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3])
+
+
 class AdaptiveLayoutTests(unittest.TestCase):
     def fit(self, font_size=None, overrides=None, blocked=False, labels=None):
         notes = [note(1, y=50, chord=7), note(2, y=60, chord=7), note(3, y=70, chord=7)]

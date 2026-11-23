@@ -78,8 +78,6 @@ export const zGlyphsView = z.object({
 
 export const zIFormFile = z.string();
 
-export const zIFormFileCollection = z.array(z.string()).min(1).max(12);
-
 export const zNumberedLabel = z.object({
     degree: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
     alteration: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
@@ -172,11 +170,22 @@ export const zJobView = z.object({
     engine: zRecognitionEngineKind
 });
 
+export const zRecognitionRegion = z.object({
+    x: z.number(),
+    y: z.number(),
+    width: z.number(),
+    height: z.number()
+});
+
 export const zRect = z.object({
     x: z.number(),
     y: z.number(),
     width: z.number(),
     height: z.number()
+});
+
+export const zRetryRequest = z.object({
+    region: zRecognitionRegion.nullable()
 });
 
 export const zScaleKind = z.enum(['Major', 'NaturalMinor']);
@@ -218,6 +227,24 @@ export const zNote = z.object({
     pitch: zPitch,
     bounds: zRect,
     label: zNumberedLabel,
+    placement: zAnnotationPlacement.nullable(),
+    style: zAnnotationStyle.nullable(),
+    system: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullable(),
+    manual: z.boolean().default(false),
+    regionRecognized: z.boolean().default(false),
+    chordId: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullable(),
+    staffInPart: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).default(0)
+});
+
+export const zNoteAddition = z.object({
+    id: z.uuid(),
+    measure: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    part: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    staff: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    voice: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    system: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    pitch: zPitch,
+    bounds: zRect,
     placement: zAnnotationPlacement.nullable(),
     style: zAnnotationStyle.nullable()
 });
@@ -261,7 +288,9 @@ export const zRevisionRequest = z.object({
     numbering: zNumberingOptions,
     placements: z.array(zPlacementChange).nullable(),
     annotationStyle: zAnnotationStyle.nullable(),
-    styleChanges: z.array(zStyleChange).nullable()
+    styleChanges: z.array(zStyleChange).nullable(),
+    addedNotes: z.array(zNoteAddition).nullable(),
+    removedNoteIds: z.array(z.uuid()).nullable()
 });
 
 export const zImportScoreBody = z.object({
@@ -307,6 +336,20 @@ export const zGetScorePath = z.object({
  */
 export const zGetScoreResponse = zJobView;
 
+export const zGetRevisionHeaders = z.object({
+    'X-Score-Token': z.string().min(32).max(200)
+});
+
+export const zGetRevisionPath = z.object({
+    id: z.uuid(),
+    version: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+});
+
+/**
+ * OK
+ */
+export const zGetRevisionResponse = zRevisionView;
+
 export const zCreateRevisionBody = zRevisionRequest;
 
 export const zCreateRevisionHeaders = z.object({
@@ -322,27 +365,13 @@ export const zCreateRevisionPath = z.object({
  */
 export const zCreateRevisionResponse = zRevisionView;
 
-export const zGetRevisionHeaders = z.object({
-    'X-Score-Token': z.string().min(32).max(200)
-});
-
-export const zGetRevisionPath = z.object({
-    id: z.uuid(),
-    version: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
-});
-
-/**
- * OK
- */
-export const zGetRevisionResponse = zRevisionView;
-
 export const zGetRevisionLayoutHeaders = z.object({
     'X-Score-Token': z.string().min(32).max(200)
 });
 
 export const zGetRevisionLayoutPath = z.object({
     id: z.uuid(),
-    version: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+    version: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
 });
 
 /**
@@ -356,11 +385,11 @@ export const zGetAnnotatedPdfHeaders = z.object({
 
 export const zGetAnnotatedPdfPath = z.object({
     id: z.uuid(),
-    version: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+    version: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
 });
 
 /**
- * Artifact bytes; Content-Type reflects PDF, image or JSON.
+ * Artifact bytes.
  */
 export const zGetAnnotatedPdfResponse = z.string();
 
@@ -370,11 +399,11 @@ export const zGetRevisionAnnotationsHeaders = z.object({
 
 export const zGetRevisionAnnotationsPath = z.object({
     id: z.uuid(),
-    version: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+    version: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
 });
 
 /**
- * Artifact bytes; Content-Type reflects PDF, image or JSON.
+ * Artifact bytes.
  */
 export const zGetRevisionAnnotationsResponse = z.string();
 
@@ -384,11 +413,11 @@ export const zGetRevisionMetricsHeaders = z.object({
 
 export const zGetRevisionMetricsPath = z.object({
     id: z.uuid(),
-    version: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+    version: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
 });
 
 /**
- * Artifact bytes; Content-Type reflects PDF, image or JSON.
+ * Artifact bytes.
  */
 export const zGetRevisionMetricsResponse = z.string();
 
@@ -411,7 +440,7 @@ export const zGetDocumentExportHeaders = z.object({
 
 export const zGetDocumentExportPath = z.object({
     id: z.uuid(),
-    version: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+    version: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
 });
 
 /**
@@ -428,9 +457,11 @@ export const zCreateCancellationPath = z.object({
 });
 
 /**
- * Accepted. The operation is queued.
+ * Accepted
  */
 export const zCreateCancellationResponse = zJobView;
+
+export const zCreateRetryBody = zRetryRequest.nullable();
 
 export const zCreateRetryHeaders = z.object({
     'X-Score-Token': z.string().min(32).max(200)
@@ -441,7 +472,7 @@ export const zCreateRetryPath = z.object({
 });
 
 /**
- * Accepted. The operation is queued.
+ * Accepted
  */
 export const zCreateRetryResponse = zJobView;
 
@@ -454,7 +485,7 @@ export const zGetScoreSourcePath = z.object({
 });
 
 /**
- * Artifact bytes; Content-Type reflects PDF, image or JSON.
+ * Artifact bytes.
  */
 export const zGetScoreSourceResponse = z.string();
 
@@ -467,6 +498,6 @@ export const zGetScoreMusicXmlPath = z.object({
 });
 
 /**
- * Artifact bytes; Content-Type reflects PDF, image or JSON.
+ * Artifact bytes.
  */
 export const zGetScoreMusicXmlResponse = z.string();

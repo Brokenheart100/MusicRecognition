@@ -1,8 +1,12 @@
+/* 校对工作台样式：文档头、谱纸、标注覆盖层、底部视图工具条。 */
+/* 这是用户逐页校对简谱的主界面，谱纸和可点击标注都叠在这里。 */
 /* Score workspace: document header, paper, annotations, view controls. */
+/* 工作台主区域：上方文档头，下方谱面面板，左右各留 30px。 */
 .score-workspace {
     padding: 30px 30px 0;
 }
 
+/* 文档头：左边乐谱名和状态，右边导出/保存按钮。 */
 .document-header {
     display: flex;
     align-items: center;
@@ -17,6 +21,7 @@
     margin-bottom: 11px;
 }
 
+/* 乐谱标题：最长 650px，超长显示省略号，不换行。 */
 .document-header h1 {
     margin: 0;
     font-size: 24px;
@@ -28,6 +33,7 @@
     white-space: nowrap;
 }
 
+/* 标题下的状态行，如"识别完成 · 共 128 个音"，图标与文字横排。 */
 .document-status {
     color: var(--ink-soft);
     font-size: var(--fs-sm);
@@ -37,6 +43,7 @@
     margin: 11px 0 0;
 }
 
+/* 音符数量前加一条 1px 竖线，和前面的状态文字分开。 */
 .note-count {
     color: var(--ink-soft);
     padding-left: 8px;
@@ -44,6 +51,7 @@
     border-left: 1px solid #e3e6ef;
 }
 
+/* 右侧操作按钮组：不随窗口收缩（flex-shrink 0）。 */
 .document-actions {
     display: flex;
     align-items: center;
@@ -51,16 +59,19 @@
     flex-shrink: 0;
 }
 
+/* 按钮统一 14px 字、至少 38px 高、11px 圆角。 */
 .document-actions>button {
     font-size: var(--fs-md);
     min-height: 38px;
     border-radius: 11px;
 }
 
+/* 保存按钮带一点紫色投影，比普通按钮更突出。 */
 .save-button {
     box-shadow: 0 3px 7px #535bd414;
 }
 
+/* 编辑区布局：默认单列（谱面占满），打开检查器时右侧多一列。 */
 .editor-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -68,10 +79,12 @@
     align-items: start;
 }
 
+/* 打开检查器时右侧固定留 274px 给它。 */
 .editor-layout.show-inspector {
     grid-template-columns: minmax(0, 1fr) 274px;
 }
 
+/* 谱面面板：只有顶部两个角是圆角，浅灰蓝底，裁掉溢出内容。 */
 .sheet-panel {
     min-width: 0;
     position: relative;
@@ -81,6 +94,7 @@
     overflow: clip;
 }
 
+/* 谱面工具栏：58px 高，左边页码右边视图操作，底部一条细线。 */
 .sheet-toolbar {
     min-height: 58px;
     display: flex;
@@ -100,12 +114,14 @@
     align-items: center;
 }
 
+/* 页码前的纸张小图标，网格居中。 */
 .paper-icon {
     display: grid;
     place-content: center;
     color: #a1a9c0;
 }
 
+/* 页码文字（当前页/总页数），图标与文字间距 10px。 */
 .page-label {
     font-size: var(--fs-md);
     color: var(--ink-soft);
@@ -119,6 +135,7 @@
     color: var(--ink-soft);
 }
 
+/* 版本小标签（如 v2）：4px 圆角、1px 细边框。 */
 .version-tag {
     font-size: var(--fs-2xs);
     color: var(--ink-soft);
@@ -127,11 +144,13 @@
     border-radius: 4px;
 }
 
+/* 版本下拉框固定 85px 宽，切换版本时工具栏不会抖动。 */
 .version-select {
     width: 85px;
     font-size: var(--fs-sm);
 }
 
+/* 工具栏里的竖分隔线：1px 宽、17px 高。 */
 .toolbar-divider {
     height: 17px;
     width: 1px;
@@ -139,6 +158,7 @@
     flex-shrink: 0;
 }
 
+/* 谱面筛选栏：一行小控件，顶部留 15px 和工具栏分开。 */
 .score-filters {
     display: flex;
     gap: 8px;
@@ -146,6 +166,7 @@
     padding: 15px 23px 0;
 }
 
+/* 谱面可视区：可滚动，最高"一屏高减 385px"，底部留 100px 给悬浮工具条。 */
 .score-stage {
     overflow: auto;
     max-height: calc(100dvh - 385px);
@@ -156,6 +177,7 @@
     scrollbar-width: thin;
 }
 
+/* 谱纸：白底、2px 圆角、外投影模拟纸张，水平居中。 */
 .score-paper {
     position: relative;
     background: white;
@@ -166,6 +188,7 @@
     flex-shrink: 0;
 }
 
+/* PDF 画布或扫描图：铺满谱纸，按比例完整显示（object-fit: contain）。 */
 .pdf-canvas,
 .scan-image {
     width: 100%;
@@ -174,6 +197,7 @@
     object-fit: contain;
 }
 
+/* 标注覆盖层：绝对定位盖住整张谱纸，允许双指平移。 */
 .annotation-overlay {
     position: absolute;
     inset: 0;
@@ -183,15 +207,18 @@
     touch-action: pan-x pan-y;
 }
 
+/* 可拖动的标注：鼠标显示"抓取"手势，触摸时不让页面跟着滚。 */
 .annotation-label {
     cursor: grab;
     touch-action: none;
 }
 
+/* 按住拖动时显示"抓紧"手势。 */
 .annotation-label:active {
     cursor: grabbing;
 }
 
+/* 标注的点击热区：平时完全透明，只负责接收鼠标事件。 */
 .label-hit {
     fill: transparent;
     stroke: transparent;
@@ -199,16 +226,19 @@
     rx: 4px;
 }
 
+/* 悬停未选中的标注：淡紫填充 + 半透明描边。 */
 .annotation-label:hover .label-hit:not(.is-selected) {
     fill: #7e87df22;
     stroke: #7e87df77;
 }
 
+/* 人工放置的标注用虚线描边，和识别引擎算出的标注区分开。 */
 .label-hit.is-manual:not(.is-selected) {
     stroke-dasharray: 3 2;
     stroke: #8696dc;
 }
 
+/* 选中的标注：更深的紫底 + 2px 实线描边。 */
 .label-hit.is-selected {
     fill: #7480ed2e;
     stroke: #5961ce;
@@ -216,6 +246,7 @@
     stroke-dasharray: none;
 }
 
+/* 键盘聚焦音符时的光圈：平时透明，聚焦才显示。 */
 .note-focus-ring {
     fill: none;
     stroke: #5961ce;
@@ -225,16 +256,19 @@
     transition: opacity .12s ease;
 }
 
+/* 音符通过 Tab 键聚焦时才亮出光圈，鼠标点击不亮。 */
 .note-target:focus-visible .note-focus-ring {
     opacity: 1;
 }
 
+/* 音符符头的点击热区：平时透明。 */
 .head-hit {
     fill: transparent;
     stroke: transparent;
     stroke-width: 1.5;
 }
 
+/* 符头被选中、悬停或聚焦时显示淡紫填充。 */
 .head-hit.is-selected,
 .note-target:hover .head-hit,
 .note-target:focus .head-hit {
@@ -242,16 +276,19 @@
     stroke: #7d88d6;
 }
 
+/* 框选范围内的标注：淡紫底 + 强调色描边。 */
 .label-hit.is-in-selection:not(.is-selected) {
     fill: #7480ed2e;
     stroke: var(--accent-stroke);
 }
 
+/* 框选范围内的符头：淡紫底。 */
 .head-hit.is-in-selection {
     fill: #7f8bed33;
     stroke: #6c79d2;
 }
 
+/* 需要用户注意的音符：橙色虚线呼吸框。 */
 .note-attention {
     fill: #f59e0b14;
     stroke: #d97706;
@@ -262,6 +299,7 @@
     animation: note-attention-breathe 2.2s ease-in-out infinite;
 }
 
+/* 注意框呼吸动画：2.2 秒一轮，透明度在 0.55 和 1 之间来回。 */
 @keyframes note-attention-breathe {
 
     0%,
@@ -274,6 +312,7 @@
     }
 }
 
+/* 系统要求减少动画时：关掉呼吸和过渡，静态显示注意框。 */
 @media (prefers-reduced-motion: reduce) {
     .note-attention {
         animation: none;
@@ -286,10 +325,12 @@
     }
 }
 
+/* 进入框选模式后，谱面鼠标变成十字准星。 */
 .annotation-overlay.is-selecting {
     cursor: crosshair;
 }
 
+/* 框选时的矩形选框：淡紫填充 + 紫色虚线边。 */
 .marquee {
     fill: #7480ed1f;
     stroke: var(--accent-stroke);
@@ -298,11 +339,13 @@
     pointer-events: none;
 }
 
+/* 音符可点击：去掉默认焦点框、显示手型。 */
 .note-target {
     outline: none;
     cursor: pointer;
 }
 
+/* 选中音符之间的虚线连线，提示它们同属一个声部。 */
 .selection-link {
     stroke: #8793cd;
     stroke-width: 1;
@@ -311,6 +354,7 @@
     opacity: .6;
 }
 
+/* 谱纸下方的说明文字，居中。 */
 .paper-caption {
     font-size: var(--fs-sm);
     color: var(--ink-soft);
@@ -319,6 +363,7 @@
     letter-spacing: .5px;
 }
 
+/* 整页预览加载中：占位 400px 高，居中显示图标和文字。 */
 .preview-loading {
     min-height: 400px;
     display: flex;
@@ -330,6 +375,7 @@
     font-size: var(--fs-lg);
 }
 
+/* 盖在谱纸上的加载层：白底、居中图标和进度条。 */
 .paper-loading {
     position: absolute;
     inset: 0;
@@ -349,6 +395,7 @@
     gap: 9px;
 }
 
+/* 进度条：最宽 220px 或 62%，高 3px、两端全圆角。 */
 .paper-progress {
     width: min(220px, 62%);
     height: 3px;
@@ -357,6 +404,7 @@
     background: #e8ebf3;
 }
 
+/* 进度条内部滑动的紫色光条：占 38% 宽度，往复扫动。 */
 .paper-progress::after {
     content: "";
     display: block;
@@ -367,6 +415,7 @@
     animation: score-render-progress 1.2s ease-in-out infinite;
 }
 
+/* 光条从左外侧（-110%）扫到右外侧（280%），表示渲染仍在进行。 */
 @keyframes score-render-progress {
     from {
         transform: translateX(-110%);
@@ -384,6 +433,7 @@
     }
 }
 
+/* 底部悬浮视图工具条：粘在可视区底部，用负外边距叠在谱纸上。 */
 .view-dock {
     display: flex;
     align-items: center;
@@ -403,6 +453,7 @@
     height: 14px;
 }
 
+/* 历史记录提示条：浅紫灰底，提示可撤销/重做。 */
 .history-notice {
     padding: 10px 20px;
     font-size: var(--fs-sm);

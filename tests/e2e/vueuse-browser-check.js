@@ -21,7 +21,8 @@ async (page) => {
     score: {
       width: 1786, height: 2526, interline: 20, engine: 'UI regression fixture', warnings: [], numbering, annotationStyle: { fontSizePoints: null, color: '#000000' },
       notes: [{
-        id: noteIds[index], interId: 1, measure: 1, part: 1, staff: 1, voice: 1,
+        id: noteIds[index], interId: 1, measure: 1, part: 1, staff: 1, voice: 1, system: 1, manual: false,
+        regionRecognized: false, chordId: null, staffInPart: 0,
         pitch: { step: 'C', alter: 0, octave: 5 }, bounds: { x: 300, y: 400, width: 30, height: 20 },
         label: { degree: 1, alteration: 0, octaveDots: 0 }, placement: null, style: null
       }],
@@ -41,12 +42,17 @@ async (page) => {
   })
   await page.unroute('**/api/scores/**')
   const requests = []
+  const retries = []
   await page.route('**/api/scores/**', async (route) => {
     requests.push({ path: new URL(route.request().url()).pathname, method: route.request().method() })
     const url = new URL(route.request().url()), segments = url.pathname.split('/').filter(Boolean)
     const id = segments[2], index = ids.indexOf(id)
     if (segments.length === 3) return route.fulfill({ json: job(id, index < 0 ? null : index) })
     if (segments[3] === 'source') return route.fulfill({ contentType: 'application/pdf', body: pdf })
+    if (segments[3] === 'retries') {
+      retries.push(route.request().postDataJSON())
+      return route.fulfill({ status: 202, headers: { Location: `/api/scores/${id}` }, json: job(id, index < 0 ? null : index) })
+    }
     if (segments[3] === 'musicxml') return route.fulfill({ contentType: 'application/vnd.recordare.musicxml', body: '<score-partwise/>' })
     if (index < 0) return route.fulfill({ status: 404, json: { title: 'not-found' } })
     const version = Number(segments[4] || url.searchParams.get('version') || revisions[index].length)
@@ -69,10 +75,10 @@ async (page) => {
           width: 1786, height: 2526, color: '#000000', pdfGeometry: null,
           glyphs: { unitsPerEm: 1000, characters: { '1': { path: 'M0 0 L200 0 L200 700 L0 700 Z', advance: 400 } } },
           annotations: [{
-            noteId: noteIds[index], interId: 1, status: 'placed', text: '1', degree: '1', alteration: 0, octaveDots: 0,
+            noteId: noteIds[index], interId: 1, status: 'placed', text: '1', degree: '1', alteration: 0, octaveDots: 0, system: 1, manual: false,
             fontSize: 18, width: 15, height: 20, baselineOffset: [0, 18], dots: [], bounds: [300, 400, 30, 20], labelBounds: [330, 400, 15, 20]
           }, ...(index === 0 ? extraIds.map((id, i) => ({
-            noteId: id, interId: i+2, status: i === 0 ? 'placed' : 'needs-manual-placement', text: '1', degree: '1', alteration: 0, octaveDots: 0,
+            noteId: id, interId: i+2, status: i === 0 ? 'placed' : 'needs-manual-placement', text: '1', degree: '1', alteration: 0, octaveDots: 0, system: 1, manual: false,
             fontSize: 18, width: 15, height: 20, baselineOffset: [0, 18], dots: [], bounds: [600+i*200, 400, 30, 20], labelBounds: i === 0 ? [630, 400, 15, 20] : null,
           })) : [])],
         }
@@ -272,6 +278,19 @@ async (page) => {
     await app.config.globalProperties.$pinia._s.get('workspace').poll()
   })
   assert(await label.getAttribute('transform') === beforeRefresh, 'Background refresh overwrote the dirty draft')
+  // Region re-recognition: select one note, confirm, and send only its padded bounds.
+  await page.locator(`[data-note-id="${noteIds[0]}"].note-target`).click()
+  const regionAction = page.getByRole('button', { name: '重新识别选中区域（1）', exact: true })
+  assert(await regionAction.count() === 1, 'Region re-recognition action missing')
+  await regionAction.click()
+  const regionDialog = page.getByRole('dialog')
+  await regionDialog.waitFor()
+  assert(await regionDialog.getByText('重新识别选中区域？', { exact: true }).count() === 1, 'Region dialog lost its title')
+  await regionDialog.getByRole('button', { name: '继续', exact: true }).click()
+  await regionDialog.waitFor({ state: 'hidden' })
+  assert(retries.length === 1, 'Region action did not request recognition')
+  const region = retries[0]?.region
+  assert(region && region.x === 270 && region.y === 370 && region.width === 90 && region.height === 80, 'Region body did not match the selected note bounds plus padding')
   assert(errors.length === 0, `Browser errors: ${errors.join('; ')}`)
   return {
     validLegacyRecordRestored: true, undoRedoAndBranch: true, historyCapacity: 50,

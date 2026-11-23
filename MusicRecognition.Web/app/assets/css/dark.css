@@ -1,15 +1,22 @@
+/* 深色主题覆盖文件：浅色样式都在 main.css，这里只写 html.dark 作用域下的颜色替换。 */
+/* 用户切到深色模式时，网页根元素 html 会加上 dark 类名，下面的规则才生效。 */
+/* 像"同一间屋子的夜灯模式"：布局尺寸完全不动，只换颜色和阴影。 */
 /* Dark theme overrides. Light styles stay in main.css; every rule is scoped to html.dark. */
+/* 第一步重定义整套设计变量（design tokens）：文字、背景、边框、品牌色全部换成暗色系。 */
 html.dark {
   color-scheme: dark;
+/* 文字三档：正文接近白，次要文字浅灰，更淡的辅助文字再暗一档。 */
   --ink: #e6e9f2;
   --ink-soft: #b4bccf;
   --ink-faint: #8d95a9;
+/* 键盘焦点框改用亮淡紫，在深色底上才看得见。 */
   --focus-ring: #aab2ff;
   --muted: #9aa3b8;
   --accent: #99a1ff;
   --accent-soft: #222842;
   --line: #2a2f3c;
   --glass: rgba(22, 25, 34, .78);
+/* 这组 --ui-* 是 Nuxt UI 组件库在深色模式下的整套配色变量。 */
   --ui-primary: #9aa2ff;
   --ui-bg: #0f1117;
   --ui-bg-muted: #171a23;
@@ -24,30 +31,37 @@ html.dark {
   --ui-text-inverted: #0f1117;
 }
 
+/* 页面总底色统一为近黑 #0f1117，正文用上面定义的浅色。 */
 html.dark body {
   color: var(--ink);
   background: #0f1117;
 }
 
+/* 工作台右上角加一团很淡的蓝紫光晕，避免大面积纯黑显得沉闷。 */
 html.dark .workspace {
   background: radial-gradient(ellipse at 92% 0%, #1b203a66, transparent 40%), #0f1117;
 }
 
+/* 毛玻璃边框改成 8% 不透明度的白，阴影加深，并在顶部加 1px 内高光。 */
 html.dark .glass {
   border-color: rgba(255, 255, 255, .08);
   box-shadow: 0 8px 32px #00000059, inset 0 1px 0 #ffffff0a;
 }
 
+/* 深色侧栏：底色近黑、条目悬停和选中用更亮的蓝灰区分；底部小字统一压暗。 */
 /* Sidebar */
+/* 侧栏底色 #12141cf5 约 96% 不透明，保留一点背景透出。 */
 html.dark .library-sidebar {
   background: #12141cf5;
   border-color: #232733;
 }
 
+/* 品牌区英文小字调成中灰，不和产品中文名抢眼。 */
 html.dark .brand small {
   color: #9299ad;
 }
 
+/* "工作台"入口文字调亮一档，选中项用蓝紫底突出。 */
 html.dark .sidebar-home {
   color: #9aa2b6;
 }
@@ -57,6 +71,7 @@ html.dark .sidebar-home.active {
   background: #232842;
 }
 
+/* 列表标题、空状态和空状态说明都用中灰，弱于文件名。 */
 html.dark .library-heading {
   color: #8f96aa;
 }
@@ -69,11 +84,13 @@ html.dark .library-empty p {
   color: #8f96aa;
 }
 
+/* 数量徽标：深蓝灰底 + 浅灰字。 */
 html.dark .library-count {
   background: #232838;
   color: #a8b0c4;
 }
 
+/* 悬停行比背景稍亮，选中行再亮一档，靠明度差表示当前位置。 */
 html.dark .library-item:hover {
   background: #1a1e29;
 }
@@ -82,12 +99,14 @@ html.dark .library-item.active {
   background: #20243a;
 }
 
+/* 文件小图标：深色卡片底 + 浅蓝文字和边框。 */
 html.dark .file-mini {
   background: #232838;
   border-color: #303646;
   color: #aab2d8;
 }
 
+/* 侧栏底部的小字说明统一压成次要文字灰。 */
 html.dark .file-text small,
 html.dark .quiet-note small,
 html.dark .local-note,
@@ -95,6 +114,7 @@ html.dark .help-link>span:last-child {
   color: #9aa3b8;
 }
 
+/* 装饰音符调成深灰蓝，只作背景点缀。 */
 html.dark .quiet-lines {
   color: #4f5872;
 }
@@ -103,31 +123,38 @@ html.dark .quiet-note p {
   color: #9099ad;
 }
 
+/* 帮助入口文字调成中灰。 */
 html.dark .help-link {
   color: #969eb2;
 }
 
+/* 状态圆点在深色下用灰蓝，避免过亮。 */
 html.dark .status-dot {
   background: #6f7ea8;
 }
 
+/* 头像占位：深色圆底 + 淡紫文字。 */
 html.dark .avatar {
   background: #232838;
   border-color: #323848;
   color: #b9bde0;
 }
 
+/* 手机端侧栏遮罩用 60% 不透明度的深黑，压暗背景突出抽屉。 */
 html.dark .sidebar-scrim {
   background: #05070b99;
 }
 
+/* 深色顶栏：半透明近黑 + 14px 背景模糊，滚动时内容从下方隐约透出。 */
 /* Top bar */
+/* #0f1117b8 约 72% 不透明度，模糊后仍有玻璃质感。 */
 html.dark .topbar {
   background: #0f1117b8;
   border-color: #232733;
   backdrop-filter: blur(14px);
 }
 
+/* 顶栏按钮、面包屑、状态标签都用中灰文字。 */
 html.dark .topbar-left>button,
 html.dark .topbar-actions>button {
   color: #8d95a9;
@@ -141,7 +168,9 @@ html.dark .workspace-tag {
   color: #8e96ab;
 }
 
+/* 深色欢迎页：光晕、漂浮卡片和功能条全部换成暗色版本。 */
 /* Welcome */
+/* 顶部小标签和它的短线都调成蓝紫灰。 */
 html.dark .eyebrow {
   color: #8f97ad;
 }
@@ -150,6 +179,7 @@ html.dark .eyebrow>span {
   background: #6f78b8;
 }
 
+/* 欢迎页说明文字和版本号用次要文字灰，弱于大标题。 */
 html.dark .welcome-description,
 html.dark .welcome-edition {
   color: #9aa2b6;
@@ -159,10 +189,12 @@ html.dark .welcome-edition i {
   color: #6d7590;
 }
 
+/* 大标题里的强调词用亮淡紫，深色下也能一眼看到。 */
 html.dark .welcome-heading h1 em {
   color: #aab1ff;
 }
 
+/* 上传卡片：深蓝渐变底 + 深色边框；拖拽文件时亮一档并显示紫色描边。 */
 html.dark .import-card {
   background: linear-gradient(145deg, #1a1e2aeb, #14172291);
   border-color: #272c3a;
@@ -173,11 +205,13 @@ html.dark .import-card.is-dragging {
   outline-color: #7d86e6;
 }
 
+/* 卡片顶部小标签和说明文字用中灰。 */
 html.dark .card-eyebrow,
 html.dark .import-card>p {
   color: #929ab0;
 }
 
+/* 上传图标方块：两层深色渐变 + 淡紫图标 + 深投影。 */
 html.dark .upload-symbol {
   background: linear-gradient(145deg, #1b2030, #171b28);
   border-color: #2a3146;
@@ -191,6 +225,7 @@ html.dark .upload-symbol>span:not(.iconify) {
   box-shadow: 0 3px 10px #00000033;
 }
 
+/* 支持格式一行用中灰，格式间的分隔点调暗。 */
 html.dark .upload-formats {
   color: #9aa3b8;
 }
@@ -199,6 +234,7 @@ html.dark .upload-formats>i {
   background: #4c5468;
 }
 
+/* "或试试示例"分隔线：文字中灰，右侧渐变线从透明到深灰。 */
 html.dark .sample-divider {
   color: #9aa3b8;
 }
@@ -207,6 +243,7 @@ html.dark .sample-divider>span {
   background: linear-gradient(90deg, transparent, #2a2f3d);
 }
 
+/* 示例按钮：深色半透明底，悬停再亮一档。 */
 html.dark .sample-button {
   background: #1a1e29cc;
   border-color: #262b38;
@@ -216,11 +253,13 @@ html.dark .sample-button:hover {
   background: #212637;
 }
 
+/* 示例按钮左侧图标底：深蓝底 + 淡紫图标。 */
 html.dark .sample-icon {
   background: #1f2740;
   color: #a6b0e8;
 }
 
+/* 示例按钮标题用浅灰白，副标题和箭头更暗。 */
 html.dark .sample-button strong {
   color: #c3c8d9;
 }
@@ -230,6 +269,7 @@ html.dark .sample-button>.iconify {
   color: #8991a6;
 }
 
+/* 右侧视觉区的光晕和轨道线都调暗，不抢主操作。 */
 html.dark .scene-glow {
   background: radial-gradient(ellipse, #2a305e66, transparent 70%);
 }
@@ -239,10 +279,12 @@ html.dark .orbit-two {
   border-color: #2b3142aa;
 }
 
+/* 漂浮的音符装饰调成深灰蓝。 */
 html.dark .floating-note {
   color: #4a5270;
 }
 
+/* 浮在说明卡片上的徽标：近黑底 + 大投影；对勾圆点用墨绿。 */
 html.dark .floating-badge {
   background: #1b1f2bed;
   box-shadow: 0 12px 24px #0000004d;
@@ -253,6 +295,7 @@ html.dark .check-orb {
   color: #8fb3aa;
 }
 
+/* 徽标主文字用浅灰白，副文字和场景说明再暗一档。 */
 html.dark .floating-badge strong {
   color: #c0c6d6;
 }
@@ -262,16 +305,19 @@ html.dark .scene-caption {
   color: #8991a5;
 }
 
+/* 底部功能条和页脚共用一条深色分隔线。 */
 html.dark .feature-strip,
 html.dark .welcome-footer {
   border-color: #242834;
 }
 
+/* 功能图标圆底：深蓝灰底 + 淡紫灰图标。 */
 html.dark .feature-icon {
   background: #1c2130;
   color: #939ec0;
 }
 
+/* 功能条主文字浅灰，说明文字中灰，背景大序号用最暗的灰。 */
 html.dark .feature-strip strong {
   color: #b5bccd;
 }
@@ -284,6 +330,7 @@ html.dark .feature-number {
   color: #303646;
 }
 
+/* 页脚和示例来源署名都用次要文字灰。 */
 html.dark .welcome-footer {
   color: #9aa3b8;
 }
@@ -292,7 +339,9 @@ html.dark .sample-credit {
   color: #8e99ba;
 }
 
+/* 深色校对工作台：谱纸容器、工具栏、检查器、状态提示的颜色替换。 */
 /* Score workspace */
+/* 文档状态、音符计数、版本标签都用中灰。 */
 html.dark .document-status {
   color: #929ab0;
 }
@@ -302,19 +351,23 @@ html.dark .note-count {
   border-color: #2b3040;
 }
 
+/* 保存按钮在深色下加深投影，保持按下去浮起的感觉。 */
 html.dark .save-button {
   box-shadow: 0 3px 7px #00000040;
 }
 
+/* 谱面面板：深蓝灰底 + 深色边框，和页面底色区分开。 */
 html.dark .sheet-panel {
   background: #171b26;
   border-color: #2a2f3d;
 }
 
+/* 工具栏底部分隔线调成深灰。 */
 html.dark .sheet-toolbar {
   border-color: #2a2f3d;
 }
 
+/* 纸张图标和页码标签调亮，保证深底上看得清。 */
 html.dark .paper-icon {
   color: #98a2bd;
 }
@@ -332,24 +385,29 @@ html.dark .version-tag {
   border-color: #303645;
 }
 
+/* 工具栏里的细分隔线调成中灰。 */
 html.dark .toolbar-divider {
   background: #303645;
 }
 
+/* 谱面舞台背景用最深的近黑 #0c0e14，滚动条也换成深色。 */
 html.dark .score-stage {
   background: #0c0e14;
   scrollbar-color: #3a4052 transparent;
 }
 
+/* 谱面纸张本身保持白纸，只加深投影，这是产品的"纸感"。 */
 html.dark .score-paper {
   box-shadow: 0 5px 24px #00000066;
 }
 
+/* 纸张说明和加载提示用灰蓝文字。 */
 html.dark .paper-caption,
 html.dark .preview-loading {
   color: #8a93a8;
 }
 
+/* 加载遮罩：约 91% 不透明度的近黑底 + 浅色文字。 */
 html.dark .paper-loading {
   color: #b8c0d4;
   background: #12151ee8;
@@ -359,20 +417,24 @@ html.dark .paper-progress {
   background: #2a3142;
 }
 
+/* 底部悬浮视图工具条加深投影。 */
 html.dark .view-dock {
   box-shadow: 0 6px 20px #00000059;
 }
 
+/* 历史记录提示条：深蓝灰底 + 浅灰文字。 */
 html.dark .history-notice {
   color: #a3abc4;
   background: #1b2030;
 }
 
+/* 检查器浮层：深色半透明底 + 大投影，从纸面上浮起。 */
 html.dark .editor-layout>.inspector {
   background: #171b26f2;
   box-shadow: 0 10px 40px #00000059;
 }
 
+/* 检查器标题和分区之间用深灰分隔线。 */
 html.dark .inspector-title,
 html.dark .inspector-section {
   border-color: #262b38;
@@ -382,6 +444,7 @@ html.dark .inspector-title {
   color: #aab2c6;
 }
 
+/* 分区标签用中灰，英文小字稍亮。 */
 html.dark .section-label {
   color: #929bb0;
 }
@@ -390,10 +453,12 @@ html.dark .section-label .section-label-en {
   color: #aab2c6;
 }
 
+/* 字段帮助文字用次要文字灰。 */
 html.dark .field-help {
   color: #9aa3b8;
 }
 
+/* 音高显示的大号数字用浅白，下标和音符说明用中灰。 */
 html.dark .pitch-display>span:first-child {
   color: #d9ddf0;
 }
@@ -403,10 +468,12 @@ html.dark .note-meta {
   color: #8e97ad;
 }
 
+/* 强调文字用淡紫。 */
 html.dark .accent-text {
   color: #aeb2ed;
 }
 
+/* 校对摘要里的统计条目和说明文字都用中灰。 */
 html.dark .review-summary>div {
   color: #9aa6bd;
 }
@@ -415,16 +482,19 @@ html.dark .review-summary>p {
   color: #8d96ab;
 }
 
+/* 调号标题用中灰。 */
 html.dark .key-title {
   color: #8d96ab;
 }
 
+/* 错误提示条：深棕底 + 暗红边框 + 浅橙文字，不刺眼但能看出是错误。 */
 html.dark .error-banner {
   background: #2a1e1c;
   border-color: #4a302b;
   color: #e2b4a6;
 }
 
+/* 识别中卡片：图标蓝灰、标题浅白、说明中灰。 */
 html.dark .processing-symbol {
   color: #9aa4cf;
 }
@@ -437,15 +507,18 @@ html.dark .processing-card p {
   color: #8e97ac;
 }
 
+/* 标注位置提示条：深蓝紫底 + 淡紫字。 */
 html.dark .placement-hint {
   background: #23294a;
   color: #c3c9f2;
 }
 
+/* 预览失败文字用浅橙灰。 */
 html.dark .preview-error {
   color: #d6a999;
 }
 
+/* 快捷键说明弹窗：近黑底，正文用浅灰。 */
 html.dark .guide-modal {
   background: #161a24;
 }
@@ -454,36 +527,44 @@ html.dark .guide-body {
   color: #9ca5b9;
 }
 
+/* 步骤序号用淡紫灰。 */
 html.dark .guide-body li::before {
   color: #7c86b4;
 }
 
+/* 步骤标题和快捷键小标题用浅白，比正文更醒目。 */
 html.dark .guide-body li strong,
 html.dark .shortcut-section h3 {
   color: #c3c9da;
 }
 
+/* 快捷键表格：深蓝灰底。 */
 html.dark .shortcut-grid {
   background: #1b2030;
 }
 
+/* 键位文字用浅灰。 */
 html.dark kbd {
   color: #aab2c8;
 }
 
+/* 弹窗底部的小字提示用中灰。 */
 html.dark .guide-note {
   color: #8d96ab;
 }
 
+/* "实验性"徽标：深蓝紫底 + 亮淡紫字。 */
 html.dark .scan-enhancement em {
   background: #272a4a;
   color: #b9bcff;
 }
 
+/* 扫描增强状态文字用中灰。 */
 html.dark .enhancement-status {
   color: #8f99b0;
 }
 
+/* 页码导航卡片：深色边框；每页按钮深底中灰字，当前页用蓝紫底和亮紫边框。 */
 html.dark .page-navigation {
   border-color: #2a2f3d;
 }
@@ -512,15 +593,18 @@ html.dark .page-navigation-item.active {
   color: #c9c7ff;
 }
 
+/* 识别失败的页用暗红边框提示。 */
 html.dark .page-navigation-item.failed {
   border-color: #5a3430;
 }
 
+/* 导出提示和导出错误文字用中灰。 */
 html.dark .page-export-hint,
 html.dark .page-export-error {
   color: #8d96ab;
 }
 
+/* 深色模式下 MusicXML 预览的纸张仍是白纸，只加深外框投影。 */
 /* Scoped preview surfaces keep the paper white; only its frame goes dark. */
 html.dark .musicxml-paper {
   box-shadow: 0 6px 30px #00000066;

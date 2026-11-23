@@ -1,14 +1,23 @@
+/* 样式总入口：把项目用到的 CSS 按固定顺序拼在一起，浏览器最终按这个顺序生效。 */
+/* 可以理解成"装修顺序表"：先铺底（变量、基础样式），再装各房间，最后统一调控件。 */
 @import "tailwindcss";
 @import "@nuxt/ui";
 
 /* Entry point: module order is intentional; later files override earlier ones. */
+/* 基础层：全局变量、字体、滚动条、通用动效和工具类。 */
 @import "./base.css";
+/* 欢迎首页（还没打开乐谱时的上传页）专用样式。 */
 @import "./welcome.css";
+/* 工作台（打开乐谱后的三栏界面）样式。 */
 @import "./workspace.css";
+/* 面板类：标注调整、导出等弹出面板。 */
 @import "./panels.css";
+/* 响应式：不同屏幕宽度下的布局调整，必须放在基础样式之后。 */
 @import "./responsive.css";
+/* 控件类：按钮、输入框等细节样式，放最后以便覆盖前面的通用规则。 */
 @import "./controls.css";
 
+/* Tailwind 主题变量：把全站无衬线字体统一成 Inter 加各平台中文字体。 */
 @theme {
     --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }

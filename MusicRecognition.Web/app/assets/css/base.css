@@ -1,5 +1,10 @@
 /* Foundations: design tokens, reset, shell frame, sidebar, top bar. */
+/* 基础样式文件：定义全站设计变量（颜色、字号），重置浏览器默认样式，并搭出工作台外壳（左侧乐谱库 + 顶栏）的骨架。 */
+/* 可以把它当成"装修前的硬装"：先把插座和水管（变量）铺好，后面的房间（页面）都从这里取电取水。 */
+/* 文件名 base 的意思是"地基"，其他样式文件都依赖这里定义的变量。 */
+/* 全站设计变量（design tokens）：颜色、字号、背景都在这里统一定义，改一处就全站生效。 */
 :root {
+/* 文字与品牌色：--ink 是正文色，--ink-soft 是次要文字，--focus-ring 是键盘焦点框颜色。 */
     --ink: #262a38;
     --ink-soft: #5f6b85;
     --ink-faint: #748199;
@@ -8,12 +13,14 @@
     --line: #e8eaf1;
     --glass: rgba(255, 255, 255, .74);
     --ui-primary: #5961ce;
+/* 这组 --ui-* 变量供 Nuxt UI 组件库读取，用来统一组件库的配色。 */
     --ui-bg: #f7f8fb;
     --ui-bg-elevated: #fff;
     --ui-text: #303545;
     --ui-border: #e5e7f0;
 
     /* UI chrome type scale; score glyph size stays data-driven. */
+/* 界面字号阶梯：从 8px 到 12px 共 5 档；谱面音符大小由数据决定，不在这里。 */
     --fs-2xs: 8px;
     --fs-xs: 9px;
     --fs-sm: 10px;
@@ -21,6 +28,7 @@
     --fs-lg: 12px;
 
     /* Shared surfaces and hairlines. */
+/* 通用表面颜色：页面底色、卡片白底、浅分隔线、警告色和强调描边。 */
     --canvas: #f7f8fb;
     --surface: #fff;
     --line-soft: #edf0f6;
@@ -28,10 +36,12 @@
     --accent-stroke: #6f7ce0;
 }
 
+/* 重置：让所有元素的宽高包含内边距和边框（border-box），布局算尺寸更直观。 */
 * {
     box-sizing: border-box;
 }
 
+/* 页面基础排版：去掉浏览器默认外边距，设置正文颜色、背景和 14px 基准字号。 */
 body {
     margin: 0;
     color: var(--ink);
@@ -40,6 +50,7 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+/* 手机端点击这些元素时不显示灰色高亮块，避免点一下"闪一下"。 */
 button,
 a,
 input,
@@ -47,31 +58,37 @@ select {
     -webkit-tap-highlight-color: transparent;
 }
 
+/* 可点击的元素显示手型光标，提示用户这里能点。 */
 button:not(:disabled),
 select {
     cursor: pointer;
 }
 
+/* 键盘 Tab 聚焦时的焦点框：3px 品牌色描边、向外偏移 4px，保证看得清。 */
 button:focus-visible,
 a:focus-visible {
     outline: 3px solid var(--focus-ring);
     outline-offset: 4px;
 }
 
+/* 工作台里的按钮和链接也要有同样清晰的焦点框；谱面音符（.note-target）不算。 */
 .workspace :is(button, a):focus-visible,
 .workspace [role="button"]:not(.note-target):focus-visible {
     outline: 3px solid var(--focus-ring);
     outline-offset: 4px;
 }
 
+/* 按钮的颜色和阴影变化用 0.2 秒过渡，状态切换更柔和。 */
 button {
     transition: background .2s, box-shadow .2s, color .2s;
 }
 
+/* 禁用按钮显示禁止光标，明确告诉用户暂时点不了。 */
 button:disabled {
     cursor: not-allowed;
 }
 
+/* 毛玻璃卡片：半透明白底 + 24px 模糊，用于侧栏、顶栏等浮在背景上的表面。 */
 .glass {
     background: var(--glass);
     backdrop-filter: blur(24px);
@@ -80,13 +97,16 @@ button:disabled {
     box-shadow: 0 8px 32px #20264105, inset 0 1px 0 #ffffffb3;
 }
 
+/* 工作台整体布局：左侧 234px 侧栏 + 右侧主内容，最少撑满一屏（100dvh 是视口高度）。 */
 .workspace {
     display: grid;
+/* 234px 是侧栏宽度；minmax(0, 1fr) 让右侧占满剩余空间且允许收缩、不撑破布局。 */
     grid-template-columns: 234px minmax(0, 1fr);
     min-height: 100dvh;
     background: radial-gradient(ellipse at 92% 0%, #ebeef959, transparent 40%), #f7f8fb;
 }
 
+/* 左侧乐谱库：粘在视口左边不随页面滚动，占满一屏高，内部纵向排列。 */
 .library-sidebar {
     position: sticky;
     top: 0;
@@ -95,11 +115,13 @@ button:disabled {
     display: flex;
     flex-direction: column;
     z-index: 30;
+/* 只画右边框，作为侧栏和内容之间的分隔线。 */
     border-width: 0 1px 0 0;
     border-color: #e7e9f080;
     background: #f8f9fcbb;
 }
 
+/* 品牌区（logo + 产品名）：宽度随内容收缩，下方留 38px 间距。 */
 .brand {
     display: flex;
     align-items: center;
@@ -114,12 +136,14 @@ button:disabled {
     border-radius: 12px;
 }
 
+/* 产品中文名：23px、加粗、字间距 2px，显得端正。 */
 .brand>span {
     font-size: 23px;
     font-weight: 650;
     letter-spacing: 2px;
 }
 
+/* 产品英文名：小字、拉开字距，放在中文名下方。 */
 .brand small {
     display: block;
     font-size: var(--fs-2xs);
@@ -129,6 +153,7 @@ button:disabled {
     margin-top: 3px;
 }
 
+/* 侧栏"导入乐谱"主按钮：紫色渐变、满宽、至少 45px 高，是侧栏最显眼的操作。 */
 .new-score {
     width: 100%;
     justify-content: center;
@@ -139,6 +164,7 @@ button:disabled {
     box-shadow: 0 6px 13px #5961ce1e, inset 0 1px 0 #ffffff33;
 }
 
+/* "工作台"入口：普通状态灰色文字，选中时紫底加粗。 */
 .sidebar-home {
     display: flex;
     align-items: center;
@@ -156,12 +182,14 @@ button:disabled {
     font-weight: 550;
 }
 
+/* 右侧小箭头：margin-left auto 把它推到行尾。 */
 .sidebar-home .tiny {
     margin-left: auto;
     width: 13px;
     opacity: .65;
 }
 
+/* "我的乐谱"标题行：两端对齐，左边标题、右边数量。 */
 .library-heading {
     display: flex;
     justify-content: space-between;
@@ -171,23 +199,27 @@ button:disabled {
     letter-spacing: 1px;
 }
 
+/* 数量用等宽数字（tabular-nums），位数变化时不会左右跳动。 */
 .library-count {
     font-size: var(--fs-sm);
     font-variant-numeric: tabular-nums;
 }
 
+/* 乐谱列表占满剩余高度，条目多了就在内部纵向滚动。 */
 .library-list {
     min-height: 100px;
     flex: 1;
     overflow-y: auto;
 }
 
+/* 空状态：没有最近乐谱时居中显示的浅灰提示。 */
 .library-empty {
     padding-top: 32px;
     text-align: center;
     color: #b5bac8;
 }
 
+/* 空状态的音符图标：27px、半透明。 */
 .library-empty>.iconify {
     font-size: 27px;
     opacity: .6;
@@ -204,6 +236,7 @@ button:disabled {
     font-size: var(--fs-sm);
 }
 
+/* 每条乐谱卡片：悬停浅灰底，当前打开的高亮为淡紫。 */
 .library-item {
     position: relative;
     border-radius: 13px;
@@ -218,6 +251,7 @@ button:disabled {
     background: #edeffa;
 }
 
+/* 打开按钮：整行可点，左边文件小图标，右边文件名和副标题。 */
 .library-open {
     width: 100%;
     display: flex;
@@ -227,6 +261,7 @@ button:disabled {
     text-align: left;
 }
 
+/* 乐谱文件图标：31×38 的圆角矩形，模仿一张纸。 */
 .file-mini {
     display: grid;
     place-content: center;
@@ -239,11 +274,13 @@ button:disabled {
     color: #8b90b4;
 }
 
+/* 文件名区域：min-width 0 允许收缩，配合省略号使用。 */
 .file-text {
     min-width: 0;
     padding-right: 5px;
 }
 
+/* 文件名超长时显示省略号；最宽 113px，因为左边还有图标、右边有按钮。 */
 .file-text strong {
     font-size: var(--fs-md);
     font-weight: 550;
@@ -261,6 +298,7 @@ button:disabled {
     margin-top: 5px;
 }
 
+/* 移除按钮：绝对定位到右上角，平时透明，鼠标悬停或键盘聚焦时才出现。 */
 .forget-score {
     position: absolute;
     right: 0;
@@ -273,15 +311,18 @@ button:disabled {
     opacity: 1;
 }
 
+/* 搜索框外部间距：左右 5px、下方 14px。 */
 .library-search {
     margin: 0 5px 14px;
 }
 
+/* 侧栏底部区域：margin-top auto 把它推到侧栏最底。 */
 .sidebar-bottom {
     margin-top: auto;
     padding-top: 24px;
 }
 
+/* 底部装饰小句：一个倾斜的音符 + 两行小字。 */
 .quiet-note {
     display: flex;
     gap: 12px;
@@ -291,6 +332,7 @@ button:disabled {
     border-bottom: 1px solid var(--line);
 }
 
+/* 装饰音符 ♩：30px 衬线字体，逆时针倾斜 12 度。 */
 .quiet-lines {
     font: 30px Georgia, serif;
     color: #9a9ebd;
@@ -310,6 +352,7 @@ button:disabled {
     margin-top: 6px;
 }
 
+/* 帮助入口：图标 + 文案 + 快捷键提示，快捷键用 margin-left auto 推到最右。 */
 .help-link {
     display: flex;
     gap: 9px;
@@ -326,6 +369,7 @@ button:disabled {
     color: var(--ink-soft);
 }
 
+/* 底部隐私说明：锁图标 + 一行小字。 */
 .local-note {
     display: flex;
     align-items: center;
@@ -335,10 +379,12 @@ button:disabled {
     font-size: var(--fs-sm);
 }
 
+/* 右侧主内容容器：min-width 0 允许内部网格在窄屏时收缩，不撑破布局。 */
 .main-shell {
     min-width: 0;
 }
 
+/* 顶栏：89px 高，左右各 42px 内边距，内容两端对齐。 */
 .topbar {
     height: 89px;
     border-bottom: 1px solid #e8eaf082;
@@ -348,6 +394,7 @@ button:disabled {
     padding: 0 42px;
 }
 
+/* 顶栏左区（返回、面包屑）与右区（操作按钮）都横向排列，间距 18px。 */
 .topbar-left,
 .topbar-actions {
     display: flex;
@@ -360,6 +407,7 @@ button:disabled {
     padding: 6px;
 }
 
+/* 面包屑：显示当前乐谱位置，链接最宽 250px 后省略。 */
 .breadcrumb {
     display: flex;
     align-items: center;
@@ -372,10 +420,12 @@ button:disabled {
     max-width: 250px;
 }
 
+/* 顶栏按钮统一用次要文字色。 */
 .topbar-actions>button {
     color: var(--ink-soft);
 }
 
+/* 顶栏右侧状态标签：小圆点 + 文字，例如"已保存"。 */
 .workspace-tag {
     color: var(--ink-soft);
     display: flex;
@@ -386,6 +436,7 @@ button:disabled {
     margin-right: 6px;
 }
 
+/* 状态小圆点：默认灰蓝色、5px；amber 变体用于提醒类状态。 */
 .status-dot {
     display: inline-block;
     width: 5px;
@@ -399,6 +450,7 @@ button:disabled {
     background: #c9a878;
 }
 
+/* 右上角头像占位：圆形，浅紫底 + 品牌色文字。 */
 .avatar {
     display: grid;
     place-content: center;
@@ -411,6 +463,7 @@ button:disabled {
     border: 2px solid white;
 }
 
+/* 宽屏（1021px 起）：可以折叠侧栏，折叠时隐藏侧栏、主区占满整行。 */
 @media (min-width: 1021px) {
     .sidebar-collapsed {
         grid-template-columns: minmax(0, 1fr);
@@ -421,10 +474,12 @@ button:disabled {
     }
 }
 
+/* 手机端侧栏默认隐藏，窄屏规则在 responsive.css 里把它变成抽屉。 */
 .mobile-sidebar {
     display: none;
 }
 
+/* 手机端侧栏打开时的半透明遮罩，默认隐藏。 */
 .sidebar-scrim {
     display: none;
 }

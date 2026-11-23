@@ -42,6 +42,7 @@ C# 生成 `NumberedLabel(Degree, Alteration, OctaveDots)`。Python 正式适配�
 4. 识谱每次用新目录，严格检查 HeadInter / MusicXML 的数量、音高多重集和栅格尺寸后，原子重命名为 raw。没有验证通过时不发布修订。
 5. 识谱完成，Job.State=Ready，产生 Revision 1；修订导出单独有 Queued / Processing / Ready / Failed。**Job Ready 不表示 PDF 已就绪**，下载要求对应 Revision Ready。
 6. 纠错携带 ExpectedRevision。PostgreSQL xmin 和唯一修订键防止覆盖并发修改，冲突返回 409。每次保存生成新快照，旧版本和导出保持不变，使用同一份原识别结果重新布局，无需识谱。
+   修订请求可带 `AddedNotes` 手工补录引擎漏掉的音符，或带 `RemovedNoteIds` 删除手工补录项；补录项由服务端分配负 `InterId` 并标记 `Manual`，进入简谱布局与标注 PDF，但不改动原始 MusicXML。
 7. 用户取消将持久标志置为 true。排队任务直接 Cancelled，运行中任务先 Cancelling，处理器每 500 ms 检查，取消自己的 Python / Java 子进程树后才进入 Cancelled。Cancelling 阶段不能重试，避免过早清除取消标志。服务正常停止由 Hangfire cancellation token 通知，未被用户取消的任务退回 Queued，重启后恢复。
 8. 工具默认 300 秒超时、日志最多 10,000 行且每行最多 4,000 字符。只操作该任务启动的进程树。工具确定性错误保留 Failed 与错误码，由用户显式 retry；Hangfire 对锁 / 未处理存储异常最多重试 2 次。
 
@@ -56,7 +57,7 @@ C# 生成 `NumberedLabel(Degree, Alteration, OctaveDots)`。Python 正式适配�
 | POST `/api/scores` | multipart 字段 `file`；另带 `Idempotency-Key` 8..100 字符；202 + Location 指向新任务，重复相同字节返回同一 ID，不同字节返回 409 |
 | GET `/api/scores/{id}` | JobView，含状态、Attempts、CurrentRevision、错误码与时间 |
 | GET `/api/scores/{id}/revisions/{version}` | 指定修订；修订不存在返回 404 |
-| POST `/api/scores/{id}/revisions` | ExpectedRevision、Corrections、Numbering；202 + Location 指向新修订，乐谱未 Ready / 版本冲突为 409 |
+| POST `/api/scores/{id}/revisions` | ExpectedRevision、Corrections、Numbering，可选 AddedNotes / RemovedNoteIds；202 + Location 指向新修订，乐谱未 Ready / 版本冲突为 409 |
 | GET `/api/scores/{id}/revisions/{version}/layout` | 单页修订的布局 / 坐标 / 待放置标记，含业务 NoteId；多页父任务返回 400 select-page |
 | GET `/api/scores/{id}/revisions/{version}/annotated-pdf` | 下载指定 Ready 修订，未完成为 409；支持 Range |
 | GET `/api/scores/{id}/revisions/{version}/annotations` | 下载原始布局 JSON |

@@ -71,20 +71,6 @@ export const getScoreOptions = (options: Options<GetScoreData>) => queryOptions<
     queryKey: getScoreQueryKey(options)
 });
 
-export const createRevisionMutation = (options?: Partial<Options<CreateRevisionData>>): UseMutationOptions<CreateRevisionResponse, CreateRevisionError, Options<CreateRevisionData>> => {
-    const mutationOptions: UseMutationOptions<CreateRevisionResponse, CreateRevisionError, Options<CreateRevisionData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createRevision({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
 export const getRevisionQueryKey = (options: Options<GetRevisionData>) => createQueryKey('getRevision', options);
 
 export const getRevisionOptions = (options: Options<GetRevisionData>) => queryOptions<GetRevisionResponse, GetRevisionError, GetRevisionResponse, ReturnType<typeof getRevisionQueryKey>>({
@@ -99,6 +85,20 @@ export const getRevisionOptions = (options: Options<GetRevisionData>) => queryOp
     },
     queryKey: getRevisionQueryKey(options)
 });
+
+export const createRevisionMutation = (options?: Partial<Options<CreateRevisionData>>): UseMutationOptions<CreateRevisionResponse, CreateRevisionError, Options<CreateRevisionData>> => {
+    const mutationOptions: UseMutationOptions<CreateRevisionResponse, CreateRevisionError, Options<CreateRevisionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createRevision({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 export const getRevisionLayoutQueryKey = (options: Options<GetRevisionLayoutData>) => createQueryKey('getRevisionLayout', options);
 

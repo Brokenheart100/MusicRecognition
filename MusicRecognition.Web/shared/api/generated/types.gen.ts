@@ -90,8 +90,6 @@ export type GlyphView = {
 
 export type IFormFile = Blob | File;
 
-export type IFormFileCollection = Array<Blob | File>;
-
 export type JobView = {
     id: string;
     fileName: string;
@@ -125,6 +123,24 @@ export type Note = {
     pitch: Pitch;
     bounds: Rect;
     label: NumberedLabel;
+    placement: null | AnnotationPlacement;
+    style: null | AnnotationStyle;
+    system: null | number;
+    manual: boolean;
+    regionRecognized: boolean;
+    chordId: null | number;
+    staffInPart: number;
+};
+
+export type NoteAddition = {
+    id: string;
+    measure: number;
+    part: number;
+    staff: number;
+    voice: number;
+    system: number;
+    pitch: Pitch;
+    bounds: Rect;
     placement: null | AnnotationPlacement;
     style: null | AnnotationStyle;
 };
@@ -185,11 +201,22 @@ export type ProblemDetails = {
 
 export type RecognitionEngineKind = 'Audiveris' | 'Homr';
 
+export type RecognitionRegion = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+};
+
 export type Rect = {
     x: number;
     y: number;
     width: number;
     height: number;
+};
+
+export type RetryRequest = {
+    region: null | RecognitionRegion;
 };
 
 export type RevisionRequest = {
@@ -199,6 +226,8 @@ export type RevisionRequest = {
     placements: null | Array<PlacementChange>;
     annotationStyle: null | AnnotationStyle;
     styleChanges: null | Array<StyleChange>;
+    addedNotes: null | Array<NoteAddition>;
+    removedNoteIds: null | Array<string>;
 };
 
 export type RevisionView = {
@@ -349,64 +378,6 @@ export type GetScoreResponses = {
 
 export type GetScoreResponse = GetScoreResponses[keyof GetScoreResponses];
 
-export type CreateRevisionData = {
-    body: RevisionRequest;
-    headers: {
-        'X-Score-Token': string;
-    };
-    path: {
-        id: string;
-    };
-    query?: never;
-    url: '/api/scores/{id}/revisions';
-};
-
-export type CreateRevisionErrors = {
-    /**
-     * Bad Request
-     */
-    400: ProblemDetails;
-    /**
-     * Unauthorized
-     */
-    401: ProblemDetails;
-    /**
-     * Not Found
-     */
-    404: ProblemDetails;
-    /**
-     * Conflict
-     */
-    409: ProblemDetails;
-    /**
-     * Payload Too Large
-     */
-    413: ProblemDetails;
-    /**
-     * Unsupported Media Type
-     */
-    415: ProblemDetails;
-    /**
-     * Too Many Requests
-     */
-    429: ProblemDetails;
-    /**
-     * Internal Server Error
-     */
-    500: ProblemDetails;
-};
-
-export type CreateRevisionError = CreateRevisionErrors[keyof CreateRevisionErrors];
-
-export type CreateRevisionResponses = {
-    /**
-     * Accepted
-     */
-    202: RevisionView;
-};
-
-export type CreateRevisionResponse = CreateRevisionResponses[keyof CreateRevisionResponses];
-
 export type GetRevisionData = {
     body?: never;
     headers: {
@@ -465,6 +436,64 @@ export type GetRevisionResponses = {
 };
 
 export type GetRevisionResponse = GetRevisionResponses[keyof GetRevisionResponses];
+
+export type CreateRevisionData = {
+    body: RevisionRequest;
+    headers: {
+        'X-Score-Token': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/scores/{id}/revisions';
+};
+
+export type CreateRevisionErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+    /**
+     * Payload Too Large
+     */
+    413: ProblemDetails;
+    /**
+     * Unsupported Media Type
+     */
+    415: ProblemDetails;
+    /**
+     * Too Many Requests
+     */
+    429: ProblemDetails;
+    /**
+     * Internal Server Error
+     */
+    500: ProblemDetails;
+};
+
+export type CreateRevisionError = CreateRevisionErrors[keyof CreateRevisionErrors];
+
+export type CreateRevisionResponses = {
+    /**
+     * Accepted
+     */
+    202: RevisionView;
+};
+
+export type CreateRevisionResponse = CreateRevisionResponses[keyof CreateRevisionResponses];
 
 export type GetRevisionLayoutData = {
     body?: never;
@@ -577,7 +606,7 @@ export type GetAnnotatedPdfError = GetAnnotatedPdfErrors[keyof GetAnnotatedPdfEr
 
 export type GetAnnotatedPdfResponses = {
     /**
-     * Artifact bytes; Content-Type reflects PDF, image or JSON.
+     * Artifact bytes.
      */
     200: Blob | File;
     /**
@@ -640,7 +669,7 @@ export type GetRevisionAnnotationsError = GetRevisionAnnotationsErrors[keyof Get
 
 export type GetRevisionAnnotationsResponses = {
     /**
-     * Artifact bytes; Content-Type reflects PDF, image or JSON.
+     * Artifact bytes.
      */
     200: Blob | File;
 };
@@ -699,7 +728,7 @@ export type GetRevisionMetricsError = GetRevisionMetricsErrors[keyof GetRevision
 
 export type GetRevisionMetricsResponses = {
     /**
-     * Artifact bytes; Content-Type reflects PDF, image or JSON.
+     * Artifact bytes.
      */
     200: Blob | File;
 };
@@ -874,7 +903,7 @@ export type CreateCancellationError = CreateCancellationErrors[keyof CreateCance
 
 export type CreateCancellationResponses = {
     /**
-     * Accepted. The operation is queued.
+     * Accepted
      */
     202: JobView;
 };
@@ -882,7 +911,7 @@ export type CreateCancellationResponses = {
 export type CreateCancellationResponse = CreateCancellationResponses[keyof CreateCancellationResponses];
 
 export type CreateRetryData = {
-    body?: never;
+    body?: null | RetryRequest;
     headers: {
         'X-Score-Token': string;
     };
@@ -932,7 +961,7 @@ export type CreateRetryError = CreateRetryErrors[keyof CreateRetryErrors];
 
 export type CreateRetryResponses = {
     /**
-     * Accepted. The operation is queued.
+     * Accepted
      */
     202: JobView;
 };
@@ -990,7 +1019,7 @@ export type GetScoreSourceError = GetScoreSourceErrors[keyof GetScoreSourceError
 
 export type GetScoreSourceResponses = {
     /**
-     * Artifact bytes; Content-Type reflects PDF, image or JSON.
+     * Artifact bytes.
      */
     200: Blob | File;
     /**
@@ -1052,7 +1081,7 @@ export type GetScoreMusicXmlError = GetScoreMusicXmlErrors[keyof GetScoreMusicXm
 
 export type GetScoreMusicXmlResponses = {
     /**
-     * Artifact bytes; Content-Type reflects PDF, image or JSON.
+     * Artifact bytes.
      */
     200: Blob | File;
 };

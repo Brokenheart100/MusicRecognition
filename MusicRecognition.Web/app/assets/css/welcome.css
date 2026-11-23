@@ -1,4 +1,7 @@
+/* 欢迎页样式：上传卡片、右侧示意谱面、底部功能条和页脚。 */
+/* 这是用户打开网站第一眼看到的页面，目标是让人放心地把乐谱传上来。 */
 /* Welcome screen: import card, sample scene, feature strip. */
+/* 欢迎页容器：最宽 1380px 居中，左右各 65px 留白。 */
 .welcome {
     max-width: 1380px;
     padding: 59px 65px 0;
@@ -6,6 +9,7 @@
     overflow-x: clip;
 }
 
+/* 顶部小标签：小字、2.2px 字距，前面一条 19px 短线。 */
 .eyebrow {
     display: flex;
     align-items: center;
@@ -23,12 +27,14 @@
     background: #858dc0;
 }
 
+/* 标题区：左边大标题和说明，右边版次信息，两端对齐。 */
 .welcome-heading {
     display: flex;
     justify-content: space-between;
     align-items: start;
 }
 
+/* 主标题字号随屏宽在 32–46px 之间自动变化（clamp），行高 1.5。 */
 .welcome-heading h1 {
     font-size: clamp(32px, 3.3vw, 46px);
     font-weight: 500;
@@ -37,11 +43,13 @@
     line-height: 1.5;
 }
 
+/* 标题里的强调词去掉斜体，改用品牌紫。 */
 .welcome-heading h1 em {
     font-style: normal;
     color: #6970b7;
 }
 
+/* 副标题说明：16px、2.15 倍行高，读起来舒展。 */
 .welcome-description {
     color: var(--ink-soft);
     font-size: var(--fs-lg);
@@ -50,6 +58,7 @@
     margin: 0;
 }
 
+/* 右上角版次信息：小字右对齐，下方 i 是装饰性英文。 */
 .welcome-edition {
     font-size: var(--fs-xs);
     line-height: 1.8;
@@ -67,6 +76,7 @@
     margin-top: 14px;
 }
 
+/* 主网格：左边上传卡片窄一些（0.92 份），右边示意谱面宽一些（1.2 份）。 */
 .welcome-grid {
     display: grid;
     grid-template-columns: minmax(280px, .92fr) minmax(350px, 1.2fr);
@@ -75,6 +85,7 @@
     margin-top: 41px;
 }
 
+/* 上传卡片：白到半透明白的渐变、23px 大圆角；z-index 2 让它压在示意谱面之上。 */
 .import-card {
     padding: 26px 31px 24px;
     border-radius: 23px;
@@ -84,12 +95,14 @@
     z-index: 2;
 }
 
+/* 文件拖到卡片上时：紫色虚线框 + 淡紫底，提示可以松手。 */
 .import-card.is-dragging {
     outline: 2px dashed #7d85d9;
     outline-offset: 5px;
     background: #f0f2ff;
 }
 
+/* 卡片内左上角的小标签。 */
 .card-eyebrow {
     display: block;
     text-align: left;
@@ -98,6 +111,7 @@
     letter-spacing: 1px;
 }
 
+/* 上传图标：66×73 的"纸片"，逆时针倾斜 5 度，带淡紫阴影。 */
 .upload-symbol {
     position: relative;
     width: 66px;
@@ -118,6 +132,7 @@
     height: 32px;
 }
 
+/* 纸片右下角的加号小方块，绝对定位到纸片外侧。 */
 .upload-symbol>span:not(.iconify) {
     position: absolute;
     right: -9px;
@@ -132,6 +147,7 @@
     color: #747ed0;
 }
 
+/* 卡片主标题 20px。 */
 .import-card h2 {
     font-size: 20px;
     letter-spacing: 1px;
@@ -139,6 +155,7 @@
     margin: 0 0 10px;
 }
 
+/* 卡片说明文字：14px、1.9 倍行高。 */
 .import-card>p {
     color: var(--ink-soft);
     line-height: 1.9;
@@ -146,6 +163,7 @@
     margin: 0 0 24px;
 }
 
+/* "选择乐谱"主按钮：紫色渐变、43px 高、12px 圆角。 */
 .upload-cta {
     min-width: 164px;
     justify-content: center;
@@ -162,6 +180,7 @@
     height: 15px;
 }
 
+/* 支持格式说明：几段文字间用 2px 小圆点分隔。 */
 .upload-formats {
     margin-top: 16px;
     display: flex;
@@ -179,6 +198,7 @@
     border-radius: 50%;
 }
 
+/* "或试试示例"分隔线：文字居中，左右各一条渐变细线。 */
 .sample-divider {
     display: flex;
     align-items: center;
@@ -194,10 +214,12 @@
     background: linear-gradient(90deg, transparent, #e8eaf1);
 }
 
+/* 右侧渐变线转 180 度，让两端都从透明渐入。 */
 .sample-divider>span:last-child {
     transform: rotate(180deg);
 }
 
+/* 示例乐谱按钮：整行可点，左图标 + 中文名 + 副标题 + 右箭头。 */
 .sample-button {
     width: 100%;
     text-align: left;
@@ -214,6 +236,7 @@
     background: #f0f2fc;
 }
 
+/* 示例按钮左侧的小乐谱图标：33×36 圆角方块。 */
 .sample-icon {
     display: grid;
     place-content: center;
@@ -229,6 +252,7 @@
     height: 13px;
 }
 
+/* 示例按钮主标题：14px 中灰。 */
 .sample-button strong {
     display: block;
     font-size: var(--fs-md);
@@ -236,6 +260,7 @@
     color: #6f7691;
 }
 
+/* 示例按钮副标题：更小的灰色说明。 */
 .sample-button small {
     display: block;
     font-size: var(--fs-xs);
@@ -243,12 +268,14 @@
     margin-top: 5px;
 }
 
+/* 右箭头用 margin-left auto 推到行尾。 */
 .sample-button>.iconify {
     color: #aab1c8;
     margin-left: auto;
     width: 14px;
 }
 
+/* 右侧示意场景：内容居中；isolation 让场景内部层级单独计算，不串到外面。 */
 .preview-scene {
     position: relative;
     display: grid;
@@ -257,6 +284,7 @@
     isolation: isolate;
 }
 
+/* 场景背后的淡紫光晕：inset 5% -5% 表示上下收 5%、左右各超出 5%。 */
 .scene-glow {
     position: absolute;
     inset: 5% -5%;
@@ -264,6 +292,7 @@
     z-index: -2;
 }
 
+/* 装饰轨道椭圆：90%×79%，倾斜 -24 度，z-index -1 放在谱纸后面。 */
 .scene-orbit {
     position: absolute;
     width: 90%;
@@ -276,6 +305,7 @@
     z-index: -1;
 }
 
+/* 第二条虚线轨道，倾斜 35 度，和第一条交叉成装饰网格。 */
 .orbit-two {
     width: 98%;
     height: 60%;
@@ -286,6 +316,7 @@
     border-color: #e8ebf2aa;
 }
 
+/* 示意谱纸：宽最多 340px 或屏宽的 27%，倾斜 -6 度，双层阴影模拟纸张浮起。 */
 .sample-paper {
     width: min(340px, 27vw);
     background: var(--surface);
@@ -297,6 +328,7 @@
     overflow: hidden;
 }
 
+/* 谱纸页眉：5.8px 极小字，模仿真实乐谱顶部的版权行。 */
 .sample-paper-header {
     display: flex;
     justify-content: space-between;
@@ -311,6 +343,7 @@
     height: 11px;
 }
 
+/* 谱纸上的曲名：Georgia 衬线字体 28px。 */
 .sample-paper h3 {
     font-family: Georgia, serif;
     margin: 21px 0 4px;
@@ -321,6 +354,7 @@
     color: #474b5d;
 }
 
+/* 谱纸上的副标题：6px 小字。 */
 .sample-paper p {
     text-align: center;
     color: #adb1be;
@@ -329,6 +363,7 @@
     margin: 0 0 14px;
 }
 
+/* 谱纸里的乐谱图片：按 1.05 宽高比裁切，76% 不透明度让纸感透出来。 */
 .sample-paper img {
     width: 100%;
     display: block;
@@ -338,6 +373,7 @@
     opacity: .76;
 }
 
+/* 谱纸页脚：4.5px 字号，顶部一条细线。 */
 .sample-paper-footer {
     display: flex;
     align-items: center;
@@ -350,6 +386,7 @@
     letter-spacing: .8px;
 }
 
+/* 漂浮的音符装饰：绝对定位在场景里，倾斜摆放。 */
 .floating-note {
     position: absolute;
     font-family: Georgia, serif;
@@ -357,6 +394,7 @@
     font-size: 27px;
 }
 
+/* 第一个装饰音符：左上角 27px，倾斜 -15 度、60% 不透明度。 */
 .note-one {
     top: 12px;
     left: 22%;
@@ -364,6 +402,7 @@
     opacity: .6;
 }
 
+/* 第二个装饰音符：右侧 39px，倾斜 15 度、更淡。 */
 .note-two {
     top: 65px;
     right: 0;
@@ -372,6 +411,7 @@
     opacity: .4;
 }
 
+/* "已自动标注"说明徽标：白底、大投影、轻微倾斜 2 度。 */
 .floating-badge {
     position: absolute;
     z-index: 3;
@@ -387,6 +427,7 @@
     box-shadow: 0 12px 24px #67729711;
 }
 
+/* 徽标里的绿色对勾圆底：31px 圆形。 */
 .check-orb {
     width: 31px;
     height: 31px;
@@ -401,6 +442,7 @@
     width: 14px;
 }
 
+/* 徽标主文字。 */
 .floating-badge strong {
     display: block;
     color: var(--ink-soft);
@@ -408,6 +450,7 @@
     font-weight: 500;
 }
 
+/* 徽标副文字。 */
 .floating-badge small {
     display: block;
     color: var(--ink-soft);
@@ -415,6 +458,7 @@
     margin-top: 5px;
 }
 
+/* 场景右下角的小字注释（6px）。 */
 .scene-caption {
     position: absolute;
     right: -3px;
@@ -424,6 +468,7 @@
     letter-spacing: 1.4px;
 }
 
+/* 底部功能条：三列等宽，顶部一条淡分隔线。 */
 .feature-strip {
     margin: 45px 0 0;
     display: grid;
@@ -433,6 +478,7 @@
     border-top: 1px solid #e6e8f080;
 }
 
+/* 单项：左边图标、右边文字，相对定位给背景序号用。 */
 .feature-strip>div {
     display: flex;
     align-items: center;
@@ -440,6 +486,7 @@
     position: relative;
 }
 
+/* 功能图标圆角方块，不参与收缩。 */
 .feature-icon {
     width: 35px;
     height: 35px;
@@ -459,6 +506,7 @@
     margin: 0;
 }
 
+/* 功能条主文字。 */
 .feature-strip strong {
     display: block;
     color: var(--ink-soft);
@@ -466,6 +514,7 @@
     font-weight: 500;
 }
 
+/* 功能条说明文字。 */
 .feature-strip small {
     display: block;
     color: var(--ink-soft);
@@ -473,6 +522,7 @@
     margin-top: 6px;
 }
 
+/* 每项背后的斜体大序号，浅灰装饰色。 */
 .feature-number {
     position: absolute;
     right: 4px;
@@ -481,6 +531,7 @@
     color: #e0e3ed;
 }
 
+/* 欢迎页页脚：左右两端对齐的小字。 */
 .welcome-footer {
     display: flex;
     justify-content: space-between;
@@ -490,6 +541,7 @@
     border-top: 1px solid #e6e8f080;
 }
 
+/* 页脚左边文案加 1px 字距。 */
 .welcome-footer>span:first-child {
     letter-spacing: 1px;
 }

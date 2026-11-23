@@ -39,6 +39,12 @@ export const getScore = <ThrowOnError extends boolean = false>(options: Options<
     ...options
 });
 
+export const getRevision = <ThrowOnError extends boolean = false>(options: Options<GetRevisionData, ThrowOnError>): RequestResult<GetRevisionResponses, GetRevisionErrors, ThrowOnError> => (options.client ?? client).get<GetRevisionResponses, GetRevisionErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetRevisionResponse.parseAsync(data),
+    url: '/api/scores/{id}/revisions/{version}',
+    ...options
+});
+
 export const createRevision = <ThrowOnError extends boolean = false>(options: Options<CreateRevisionData, ThrowOnError>): RequestResult<CreateRevisionResponses, CreateRevisionErrors, ThrowOnError> => (options.client ?? client).post<CreateRevisionResponses, CreateRevisionErrors, ThrowOnError>({
     responseValidator: async (data) => await zCreateRevisionResponse.parseAsync(data),
     url: '/api/scores/{id}/revisions',
@@ -47,12 +53,6 @@ export const createRevision = <ThrowOnError extends boolean = false>(options: Op
         'Content-Type': 'application/json',
         ...options.headers
     }
-});
-
-export const getRevision = <ThrowOnError extends boolean = false>(options: Options<GetRevisionData, ThrowOnError>): RequestResult<GetRevisionResponses, GetRevisionErrors, ThrowOnError> => (options.client ?? client).get<GetRevisionResponses, GetRevisionErrors, ThrowOnError>({
-    responseValidator: async (data) => await zGetRevisionResponse.parseAsync(data),
-    url: '/api/scores/{id}/revisions/{version}',
-    ...options
 });
 
 /**
@@ -103,7 +103,11 @@ export const createCancellation = <ThrowOnError extends boolean = false>(options
 export const createRetry = <ThrowOnError extends boolean = false>(options: Options<CreateRetryData, ThrowOnError>): RequestResult<CreateRetryResponses, CreateRetryErrors, ThrowOnError> => (options.client ?? client).post<CreateRetryResponses, CreateRetryErrors, ThrowOnError>({
     responseValidator: async (data) => await zCreateRetryResponse.parseAsync(data),
     url: '/api/scores/{id}/retries',
-    ...options
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 export const getScoreSource = <ThrowOnError extends boolean = false>(options: Options<GetScoreSourceData, ThrowOnError>): RequestResult<GetScoreSourceResponses, GetScoreSourceErrors, ThrowOnError> => (options.client ?? client).get<GetScoreSourceResponses, GetScoreSourceErrors, ThrowOnError>({

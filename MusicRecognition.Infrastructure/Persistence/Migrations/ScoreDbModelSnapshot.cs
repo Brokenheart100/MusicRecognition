@@ -87,6 +87,21 @@ namespace MusicRecognition.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasDefaultValue(0);
 
+                    b.Property<int?>("RegionBaseRevision")
+                        .HasColumnType("integer");
+
+                    b.Property<double?>("RegionHeight")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("RegionWidth")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("RegionX")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("RegionY")
+                        .HasColumnType("double precision");
+
                     b.Property<string>("RequestHash")
                         .IsRequired()
                         .HasColumnType("text");
