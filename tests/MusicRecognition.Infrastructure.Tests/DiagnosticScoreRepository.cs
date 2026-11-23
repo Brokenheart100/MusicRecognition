@@ -1,4 +1,6 @@
 using MusicRecognition.Application;
+using MusicRecognition.Application.DTOs;
+using MusicRecognition.Application.Interfaces;
 
 internal sealed class DiagnosticScoreRepository(params ScoreJob[] jobs) : IScoreRepository
 {

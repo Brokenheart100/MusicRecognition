@@ -24,8 +24,4 @@ for name, tool in lock.items():
         app.mkdir(parents=True)
         (app/'app').symlink_to(jars[0].parent,target_is_directory=True)
         (app/'runtime').symlink_to('/opt/java/openjdk',target_is_directory=True)
-    else:
-        package.chmod(0o755)
-        destination = Path('/opt/musescore'); destination.mkdir()
-        subprocess.run([str(package),'--appimage-extract'],cwd=destination,check=True,stdout=subprocess.DEVNULL)
     package.unlink()

@@ -34,10 +34,11 @@ async (page) => {
     const id = localStorage.getItem('pujian:active')
     const item = JSON.parse(localStorage.getItem('pujian:scores:v1')).find(r => r.id === id)
     const headers = { 'X-Score-Token': item.token }
-    const revision = await (await fetch(`/api/scores/${id}/revisions`, { headers })).json()
-    const get = async (name, version) => (await fetch(`/api/scores/${id}/artifacts/${name}?version=${version}`, { headers })).json()
-    const layout = await get('annotations.json', revision.version), metrics = await get('metrics.json', revision.version)
-    const original = await (await fetch(`/api/scores/${id}/revisions?version=1`, { headers })).json()
+    const job = await (await fetch(`/api/scores/${id}`, { headers })).json()
+    const revision = await (await fetch(`/api/scores/${id}/revisions/${job.currentRevision}`, { headers })).json()
+    const get = async path => (await fetch(`/api/scores/${id}/revisions/${revision.version}/${path}`, { headers })).json()
+    const layout = await get('annotations'), metrics = await get('metrics')
+    const original = await (await fetch(`/api/scores/${id}/revisions/1`, { headers })).json()
     const invalid = await fetch(`/api/scores/${id}/revisions`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ expectedRevision: revision.version, corrections: [], numbering: revision.score.numbering, annotationStyle: { fontSizePoints: 17, color: 'red' } }) })
     return { scoreId: id, version: revision.version, style: revision.score.annotationStyle, color: layout.color,

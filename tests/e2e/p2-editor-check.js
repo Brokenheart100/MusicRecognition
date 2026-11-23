@@ -16,7 +16,8 @@ async (page) => {
   await page.getByRole('option', { name: '全部声部', exact: true }).click()
   const id = await page.evaluate(async () => {
     const id = localStorage.getItem('pujian:active'), item = JSON.parse(localStorage.getItem('pujian:scores:v1')).find(r => r.id === id)
-    const r = await (await fetch(`/api/scores/${id}/revisions`, { headers: { 'X-Score-Token': item.token } })).json()
+    const job = await (await fetch(`/api/scores/${id}`, { headers: { 'X-Score-Token': item.token } })).json()
+    const r = await (await fetch(`/api/scores/${id}/revisions/${job.currentRevision}`, { headers: { 'X-Score-Token': item.token } })).json()
     return r.score.notes.find(n => n.placement?.x != null && !n.placement.hidden).id
   })
   await page.locator(`.note-target[data-note-id="${id}"]`).click()
@@ -41,7 +42,7 @@ async (page) => {
   assert(await label.count() === 0, 'A conflicting saved placement must not be painted in the preview')
   const collision = await page.evaluate(async (id) => {
     const current = localStorage.getItem('pujian:active'), item = JSON.parse(localStorage.getItem('pujian:scores:v1')).find(r => r.id === current)
-    const data = await (await fetch(`/api/scores/${current}/artifacts/annotations.json?version=3`, { headers: { 'X-Score-Token': item.token } })).json()
+    const data = await (await fetch(`/api/scores/${current}/revisions/3/annotations`, { headers: { 'X-Score-Token': item.token } })).json()
     return data.annotations.find(a => a.noteId === id).status
   }, id)
   assert(collision === 'needs-manual-placement', 'Original ink collision was not retained for review')

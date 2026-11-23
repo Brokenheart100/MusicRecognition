@@ -27,7 +27,7 @@ for case in summary["cases"]:
     record = {"id": case["id"], "mode": job["preprocessing"], "state": job["state"], "persisted": True}
     if args.retry and case["case"] == "bach-scan" and case["mode"] == "Adaptive":
         before = job["attempts"]
-        job = call("POST", "/retry")
+        job = call("POST", "/retries")
         assert job["state"] == "Queued" and job["preprocessing"] == "Adaptive"
         deadline = time.monotonic() + 150
         while job["state"] not in ("Ready", "Failed", "Cancelled"):
@@ -37,7 +37,7 @@ for case in summary["cases"]:
         assert job["preprocessing"] == "Adaptive" and job["attempts"] == before + 1
         assert job["state"] == "Failed" and job["errorCode"] == "pitch-consistency-failed" and job["currentRevision"] == 0
         record["retryPreservedModeAndGuard"] = True
-    assert hashlib.sha256(call(suffix="/artifacts/source")).hexdigest() == case["sourceSha256"]
+    assert hashlib.sha256(call(suffix="/source")).hexdigest() == case["sourceSha256"]
     record["sourceDownloadMatches"] = True
     checks.append(record)
 filename = "retry-settings.json" if args.retry else "persisted-settings.json"

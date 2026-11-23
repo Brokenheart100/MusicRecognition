@@ -6,11 +6,11 @@
 
 ### API 是契约来源
 
-`MusicRecognition.Api/Program.cs` 为 10 个操作声明稳定 operationId；上传、保存修订、创建整份导出均为 `202 + JSON`。所有受保护操作声明 `X-Score-Token`，上传另声明 `Idempotency-Key`，包含服务端实际执行的长度限制。multipart 描述真实二进制文件和可选预处理值，工件下载声明二进制响应及 `206`。
+P3 的 14 个原谱操作在 [ScoreEndpoints.cs](../MusicRecognition.Api/Endpoints/ScoreEndpoints.cs) 声明稳定的 `operationId`。上传、保存修订、创建整份导出、取消与重试均为资源化命令，返回 `202 + Location`。所有受保护操作声明 `X-Score-Token`，上传另声明 `Idempotency-Key`，包含服务端实际执行的长度限制。multipart 描述真实二进制文件和可选预处理值，工件下载声明二进制响应及 `206`。
 
 `ContractSchemaTransformer` 补齐状态枚举、数值限制、必有字段和标注几何元组；JSON 数值采用严格数字格式。响应允许正常的可空错误字段及尚未生成的页导出状态。错误契约为 ProblemDetails（400 / 401 / 404 / 409 / 413 / 415 / 500）；框架直接返回的无正文错误也转换为 ProblemDetails。
 
-新增 `GET /api/scores/{id}/layout?version=N`，只返回单页修订的浏览器布局投影，由 Application 中的 DTO 描述。文档父任务调用该接口会得到 409，必须选择具体页面。完整识谱审计信息继续通过原有 artifacts 下载，避免把父文档汇总 JSON 和单页布局混为同一种类型。Nuxt 固定上游与路径白名单增加 layout，保留同源代理、能力凭据和 `private, no-store`。
+新增 `GET /api/scores/{id}/revisions/{version}/layout`，只返回单页修订的浏览器布局投影，由 Application 中的 DTO 描述。文档父任务调用该接口会得到 400 `select-page`，必须选择具体页面。原始布局、PDF 与 metrics 通过同层修订子资源 `/annotations`、`/annotated-pdf`、`/metrics` 下载，避免把父文档汇总 JSON 和单页布局混为同一种类型。Nuxt 固定上游与路径白名单同步这些资源路径，保留同源代理、能力凭据和 `private, no-store`。
 
 ### 生成 SDK、类型与 Zod
 
@@ -22,7 +22,7 @@
 
 ### Query 与 Pinia 的职责
 
-`app/composables/useScoreServer.ts` 中的 Query 管理父任务、当前页任务、修订、标注布局、原谱 Blob 和整份导出。上传、保存、取消、重试、合并通过 mutation 调用 SDK，完成后失效相关查询。取消旧请求使用 AbortSignal；Query 自行去重与轮询，删除原有手写 setTimeout 任务循环。
+`app/composables/useScoreServer.ts` 中的 Query 管理父任务、当前页任务、修订、标注布局、原谱 Blob 和整份导出。上传、保存、取消、重试通过 mutation 调用 SDK，完成后失效相关查询。取消旧请求使用 AbortSignal；Query 自行去重与轮询，删除原有手写 setTimeout 任务循环。
 
 识别与排版的 Queued / Processing / Cancelling 状态继续轮询；父任务还会检查每页 exportState，避免“识别已完成、排版未完成”时过早停止。前台间隔 1.5 秒，后台查询间隔配置为 5 秒，并遵守 Query 默认后台暂停策略；终态停止轮询，重新聚焦时可刷新状态。网络 / 服务端错误最多重试两次，业务 4xx 不自动重试，mutation 不自动重试。上传中断仍复用本机 capability 与幂等键。
 

@@ -54,16 +54,16 @@ while time.monotonic()<deadline:
     job=get(path)
     assert job['state'] not in ('Failed','Cancelled'),job
     if job['state']=='Ready':
-        revision=get(path+'/revisions')
+        revision=get(path+'/revisions/'+str(job['currentRevision']))
         assert revision['state']!='Failed',revision
         if revision['state']=='Ready': break
     time.sleep(1)
 else: raise TimeoutError('Recognition/export did not finish')
 elapsed=time.monotonic()-started
-status,pdf,_=request(path+'/artifacts/annotated.pdf');assert status==200 and pdf.startswith(b'%PDF-')
+status,pdf,_=request(path+'/revisions/'+str(job['currentRevision'])+'/annotated-pdf');assert status==200 and pdf.startswith(b'%PDF-')
 (a.output/'Minuet-annotated.pdf').write_bytes(pdf)
 unauthorized=request(path,access='x'*64)[0];assert unauthorized==404
-traversal=request(path+'/artifacts/progress.json')[0];assert traversal==404
+traversal=request(path+'/revisions/999/annotations')[0];assert traversal==404
 replay, replay_body,_=request('/api/scores/','POST',body,{'Content-Type':f'multipart/form-data; boundary={boundary}','Idempotency-Key':key})
 assert replay==202 and json.loads(replay_body)['id']==id,'Idempotency replay created a different task'
 origin=urlsplit(a.url);connection=http.client.HTTPConnection(origin.hostname,origin.port,timeout=10)
@@ -74,7 +74,7 @@ def read(_):
     before=time.monotonic();status,_,_=request(path);assert status==200;return (time.monotonic()-before)*1000
 with ThreadPoolExecutor(max_workers=4) as pool: latencies=sorted(pool.map(read,range(80)))
 statuses=[]
-for _ in range(25): statuses.append(request(path+'/retry','POST',b'',{})[0])
+for _ in range(25): statuses.append(request(path+'/retries','POST',b'',{})[0])
 assert 429 in statuses,statuses
 assert request(path)[0]==200,'Write throttling must not throttle polling'
 same=request('/api/scores/','POST',body,{'Content-Type':f'multipart/form-data; boundary={boundary}','Idempotency-Key':key})[0]

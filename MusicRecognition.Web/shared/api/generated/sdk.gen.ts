@@ -2,8 +2,8 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CancelFragmentProjectData, CancelFragmentProjectErrors, CancelFragmentProjectResponses, CancelScoreData, CancelScoreErrors, CancelScoreResponses, CreateDocumentExportData, CreateDocumentExportErrors, CreateDocumentExportResponses, CreateFragmentRevisionData, CreateFragmentRevisionErrors, CreateFragmentRevisionResponses, CreateRevisionData, CreateRevisionErrors, CreateRevisionResponses, GetDocumentExportData, GetDocumentExportErrors, GetDocumentExportResponses, GetFragmentArtifactData, GetFragmentArtifactErrors, GetFragmentArtifactResponses, GetFragmentImageData, GetFragmentImageErrors, GetFragmentImageResponses, GetFragmentProjectData, GetFragmentProjectErrors, GetFragmentProjectResponses, GetRevisionData, GetRevisionErrors, GetRevisionResponses, GetScoreArtifactData, GetScoreArtifactErrors, GetScoreArtifactResponses, GetScoreData, GetScoreErrors, GetScoreLayoutData, GetScoreLayoutErrors, GetScoreLayoutResponses, GetScoreReflowData, GetScoreReflowErrors, GetScoreReflowResponses, GetScoreResponses, ImportFragmentsData, ImportFragmentsErrors, ImportFragmentsResponses, ImportScoreData, ImportScoreErrors, ImportScoreResponses, RetryFragmentProjectData, RetryFragmentProjectErrors, RetryFragmentProjectResponses, RetryScoreData, RetryScoreErrors, RetryScoreResponses } from './types.gen';
-import { zCancelFragmentProjectResponse, zCancelScoreResponse, zCreateDocumentExportResponse, zCreateFragmentRevisionResponse, zCreateRevisionResponse, zGetDocumentExportResponse, zGetFragmentArtifactResponse, zGetFragmentImageResponse, zGetFragmentProjectResponse, zGetRevisionResponse, zGetScoreArtifactResponse, zGetScoreLayoutResponse, zGetScoreReflowResponse, zGetScoreResponse, zImportFragmentsResponse, zImportScoreResponse, zRetryFragmentProjectResponse, zRetryScoreResponse } from './zod.gen';
+import type { CreateCancellationData, CreateCancellationErrors, CreateCancellationResponses, CreateDocumentExportData, CreateDocumentExportErrors, CreateDocumentExportResponses, CreateRetryData, CreateRetryErrors, CreateRetryResponses, CreateRevisionData, CreateRevisionErrors, CreateRevisionResponses, GetAnnotatedPdfData, GetAnnotatedPdfErrors, GetAnnotatedPdfResponses, GetDocumentExportData, GetDocumentExportErrors, GetDocumentExportResponses, GetRevisionAnnotationsData, GetRevisionAnnotationsErrors, GetRevisionAnnotationsResponses, GetRevisionData, GetRevisionErrors, GetRevisionLayoutData, GetRevisionLayoutErrors, GetRevisionLayoutResponses, GetRevisionMetricsData, GetRevisionMetricsErrors, GetRevisionMetricsResponses, GetRevisionResponses, GetScoreData, GetScoreErrors, GetScoreMusicXmlData, GetScoreMusicXmlErrors, GetScoreMusicXmlResponses, GetScoreResponses, GetScoreSourceData, GetScoreSourceErrors, GetScoreSourceResponses, ImportScoreData, ImportScoreErrors, ImportScoreResponses } from './types.gen';
+import { zCreateCancellationResponse, zCreateDocumentExportResponse, zCreateRetryResponse, zCreateRevisionResponse, zGetAnnotatedPdfResponse, zGetDocumentExportResponse, zGetRevisionAnnotationsResponse, zGetRevisionLayoutResponse, zGetRevisionMetricsResponse, zGetRevisionResponse, zGetScoreMusicXmlResponse, zGetScoreResponse, zGetScoreSourceResponse, zImportScoreResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -39,12 +39,6 @@ export const getScore = <ThrowOnError extends boolean = false>(options: Options<
     ...options
 });
 
-export const getRevision = <ThrowOnError extends boolean = false>(options: Options<GetRevisionData, ThrowOnError>): RequestResult<GetRevisionResponses, GetRevisionErrors, ThrowOnError> => (options.client ?? client).get<GetRevisionResponses, GetRevisionErrors, ThrowOnError>({
-    responseValidator: async (data) => await zGetRevisionResponse.parseAsync(data),
-    url: '/api/scores/{id}/revisions',
-    ...options
-});
-
 export const createRevision = <ThrowOnError extends boolean = false>(options: Options<CreateRevisionData, ThrowOnError>): RequestResult<CreateRevisionResponses, CreateRevisionErrors, ThrowOnError> => (options.client ?? client).post<CreateRevisionResponses, CreateRevisionErrors, ThrowOnError>({
     responseValidator: async (data) => await zCreateRevisionResponse.parseAsync(data),
     url: '/api/scores/{id}/revisions',
@@ -53,6 +47,39 @@ export const createRevision = <ThrowOnError extends boolean = false>(options: Op
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+export const getRevision = <ThrowOnError extends boolean = false>(options: Options<GetRevisionData, ThrowOnError>): RequestResult<GetRevisionResponses, GetRevisionErrors, ThrowOnError> => (options.client ?? client).get<GetRevisionResponses, GetRevisionErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetRevisionResponse.parseAsync(data),
+    url: '/api/scores/{id}/revisions/{version}',
+    ...options
+});
+
+/**
+ * Typed layout for an individual page revision.
+ */
+export const getRevisionLayout = <ThrowOnError extends boolean = false>(options: Options<GetRevisionLayoutData, ThrowOnError>): RequestResult<GetRevisionLayoutResponses, GetRevisionLayoutErrors, ThrowOnError> => (options.client ?? client).get<GetRevisionLayoutResponses, GetRevisionLayoutErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetRevisionLayoutResponse.parseAsync(data),
+    url: '/api/scores/{id}/revisions/{version}/layout',
+    ...options
+});
+
+export const getAnnotatedPdf = <ThrowOnError extends boolean = false>(options: Options<GetAnnotatedPdfData, ThrowOnError>): RequestResult<GetAnnotatedPdfResponses, GetAnnotatedPdfErrors, ThrowOnError> => (options.client ?? client).get<GetAnnotatedPdfResponses, GetAnnotatedPdfErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetAnnotatedPdfResponse.parseAsync(data),
+    url: '/api/scores/{id}/revisions/{version}/annotated-pdf',
+    ...options
+});
+
+export const getRevisionAnnotations = <ThrowOnError extends boolean = false>(options: Options<GetRevisionAnnotationsData, ThrowOnError>): RequestResult<GetRevisionAnnotationsResponses, GetRevisionAnnotationsErrors, ThrowOnError> => (options.client ?? client).get<GetRevisionAnnotationsResponses, GetRevisionAnnotationsErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetRevisionAnnotationsResponse.parseAsync(data),
+    url: '/api/scores/{id}/revisions/{version}/annotations',
+    ...options
+});
+
+export const getRevisionMetrics = <ThrowOnError extends boolean = false>(options: Options<GetRevisionMetricsData, ThrowOnError>): RequestResult<GetRevisionMetricsResponses, GetRevisionMetricsErrors, ThrowOnError> => (options.client ?? client).get<GetRevisionMetricsResponses, GetRevisionMetricsErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetRevisionMetricsResponse.parseAsync(data),
+    url: '/api/scores/{id}/revisions/{version}/metrics',
+    ...options
 });
 
 export const createDocumentExport = <ThrowOnError extends boolean = false>(options: Options<CreateDocumentExportData, ThrowOnError>): RequestResult<CreateDocumentExportResponses, CreateDocumentExportErrors, ThrowOnError> => (options.client ?? client).post<CreateDocumentExportResponses, CreateDocumentExportErrors, ThrowOnError>({
@@ -67,92 +94,26 @@ export const getDocumentExport = <ThrowOnError extends boolean = false>(options:
     ...options
 });
 
-export const cancelScore = <ThrowOnError extends boolean = false>(options: Options<CancelScoreData, ThrowOnError>): RequestResult<CancelScoreResponses, CancelScoreErrors, ThrowOnError> => (options.client ?? client).post<CancelScoreResponses, CancelScoreErrors, ThrowOnError>({
-    responseValidator: async (data) => await zCancelScoreResponse.parseAsync(data),
-    url: '/api/scores/{id}/cancel',
+export const createCancellation = <ThrowOnError extends boolean = false>(options: Options<CreateCancellationData, ThrowOnError>): RequestResult<CreateCancellationResponses, CreateCancellationErrors, ThrowOnError> => (options.client ?? client).post<CreateCancellationResponses, CreateCancellationErrors, ThrowOnError>({
+    responseValidator: async (data) => await zCreateCancellationResponse.parseAsync(data),
+    url: '/api/scores/{id}/cancellations',
     ...options
 });
 
-export const retryScore = <ThrowOnError extends boolean = false>(options: Options<RetryScoreData, ThrowOnError>): RequestResult<RetryScoreResponses, RetryScoreErrors, ThrowOnError> => (options.client ?? client).post<RetryScoreResponses, RetryScoreErrors, ThrowOnError>({
-    responseValidator: async (data) => await zRetryScoreResponse.parseAsync(data),
-    url: '/api/scores/{id}/retry',
+export const createRetry = <ThrowOnError extends boolean = false>(options: Options<CreateRetryData, ThrowOnError>): RequestResult<CreateRetryResponses, CreateRetryErrors, ThrowOnError> => (options.client ?? client).post<CreateRetryResponses, CreateRetryErrors, ThrowOnError>({
+    responseValidator: async (data) => await zCreateRetryResponse.parseAsync(data),
+    url: '/api/scores/{id}/retries',
     ...options
 });
 
-export const getScoreArtifact = <ThrowOnError extends boolean = false>(options: Options<GetScoreArtifactData, ThrowOnError>): RequestResult<GetScoreArtifactResponses, GetScoreArtifactErrors, ThrowOnError> => (options.client ?? client).get<GetScoreArtifactResponses, GetScoreArtifactErrors, ThrowOnError>({
-    responseValidator: async (data) => await zGetScoreArtifactResponse.parseAsync(data),
-    url: '/api/scores/{id}/artifacts/{name}',
+export const getScoreSource = <ThrowOnError extends boolean = false>(options: Options<GetScoreSourceData, ThrowOnError>): RequestResult<GetScoreSourceResponses, GetScoreSourceErrors, ThrowOnError> => (options.client ?? client).get<GetScoreSourceResponses, GetScoreSourceErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetScoreSourceResponse.parseAsync(data),
+    url: '/api/scores/{id}/source',
     ...options
 });
 
-/**
- * Typed layout for an individual page revision.
- */
-export const getScoreLayout = <ThrowOnError extends boolean = false>(options: Options<GetScoreLayoutData, ThrowOnError>): RequestResult<GetScoreLayoutResponses, GetScoreLayoutErrors, ThrowOnError> => (options.client ?? client).get<GetScoreLayoutResponses, GetScoreLayoutErrors, ThrowOnError>({
-    responseValidator: async (data) => await zGetScoreLayoutResponse.parseAsync(data),
-    url: '/api/scores/{id}/layout',
-    ...options
-});
-
-/**
- * Revision-bound MusicXML and verified note identities for re-engraving.
- */
-export const getScoreReflow = <ThrowOnError extends boolean = false>(options: Options<GetScoreReflowData, ThrowOnError>): RequestResult<GetScoreReflowResponses, GetScoreReflowErrors, ThrowOnError> => (options.client ?? client).get<GetScoreReflowResponses, GetScoreReflowErrors, ThrowOnError>({
-    responseValidator: async (data) => await zGetScoreReflowResponse.parseAsync(data),
-    url: '/api/scores/{id}/reflow',
-    ...options
-});
-
-/**
- * Create an ordered screenshot composition project (1–12 images, 20 MiB total).
- */
-export const importFragments = <ThrowOnError extends boolean = false>(options: Options<ImportFragmentsData, ThrowOnError>): RequestResult<ImportFragmentsResponses, ImportFragmentsErrors, ThrowOnError> => (options.client ?? client).post<ImportFragmentsResponses, ImportFragmentsErrors, ThrowOnError>({
-    ...formDataBodySerializer,
-    responseValidator: async (data) => await zImportFragmentsResponse.parseAsync(data),
-    url: '/api/fragments',
-    ...options,
-    headers: {
-        'Content-Type': null,
-        ...options.headers
-    }
-});
-
-export const getFragmentProject = <ThrowOnError extends boolean = false>(options: Options<GetFragmentProjectData, ThrowOnError>): RequestResult<GetFragmentProjectResponses, GetFragmentProjectErrors, ThrowOnError> => (options.client ?? client).get<GetFragmentProjectResponses, GetFragmentProjectErrors, ThrowOnError>({
-    responseValidator: async (data) => await zGetFragmentProjectResponse.parseAsync(data),
-    url: '/api/fragments/{id}',
-    ...options
-});
-
-export const createFragmentRevision = <ThrowOnError extends boolean = false>(options: Options<CreateFragmentRevisionData, ThrowOnError>): RequestResult<CreateFragmentRevisionResponses, CreateFragmentRevisionErrors, ThrowOnError> => (options.client ?? client).post<CreateFragmentRevisionResponses, CreateFragmentRevisionErrors, ThrowOnError>({
-    responseValidator: async (data) => await zCreateFragmentRevisionResponse.parseAsync(data),
-    url: '/api/fragments/{id}/revisions',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-export const getFragmentArtifact = <ThrowOnError extends boolean = false>(options: Options<GetFragmentArtifactData, ThrowOnError>): RequestResult<GetFragmentArtifactResponses, GetFragmentArtifactErrors, ThrowOnError> => (options.client ?? client).get<GetFragmentArtifactResponses, GetFragmentArtifactErrors, ThrowOnError>({
-    responseValidator: async (data) => await zGetFragmentArtifactResponse.parseAsync(data),
-    url: '/api/fragments/{id}/artifacts/{name}',
-    ...options
-});
-
-export const getFragmentImage = <ThrowOnError extends boolean = false>(options: Options<GetFragmentImageData, ThrowOnError>): RequestResult<GetFragmentImageResponses, GetFragmentImageErrors, ThrowOnError> => (options.client ?? client).get<GetFragmentImageResponses, GetFragmentImageErrors, ThrowOnError>({
-    responseValidator: async (data) => await zGetFragmentImageResponse.parseAsync(data),
-    url: '/api/fragments/{id}/images/{index}',
-    ...options
-});
-
-export const retryFragmentProject = <ThrowOnError extends boolean = false>(options: Options<RetryFragmentProjectData, ThrowOnError>): RequestResult<RetryFragmentProjectResponses, RetryFragmentProjectErrors, ThrowOnError> => (options.client ?? client).post<RetryFragmentProjectResponses, RetryFragmentProjectErrors, ThrowOnError>({
-    responseValidator: async (data) => await zRetryFragmentProjectResponse.parseAsync(data),
-    url: '/api/fragments/{id}/retry',
-    ...options
-});
-
-export const cancelFragmentProject = <ThrowOnError extends boolean = false>(options: Options<CancelFragmentProjectData, ThrowOnError>): RequestResult<CancelFragmentProjectResponses, CancelFragmentProjectErrors, ThrowOnError> => (options.client ?? client).post<CancelFragmentProjectResponses, CancelFragmentProjectErrors, ThrowOnError>({
-    responseValidator: async (data) => await zCancelFragmentProjectResponse.parseAsync(data),
-    url: '/api/fragments/{id}/cancel',
+export const getScoreMusicXml = <ThrowOnError extends boolean = false>(options: Options<GetScoreMusicXmlData, ThrowOnError>): RequestResult<GetScoreMusicXmlResponses, GetScoreMusicXmlErrors, ThrowOnError> => (options.client ?? client).get<GetScoreMusicXmlResponses, GetScoreMusicXmlErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetScoreMusicXmlResponse.parseAsync(data),
+    url: '/api/scores/{id}/musicxml',
     ...options
 });

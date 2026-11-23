@@ -12,6 +12,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 import uuid
 import zipfile
 
@@ -25,6 +26,7 @@ parser.add_argument("--labels", type=Path)
 parser.add_argument("--style", type=Path)
 parser.add_argument("--font", type=Path)
 parser.add_argument("--preprocess", choices=["none", "adaptive"], default="none")
+parser.add_argument("--engine", choices=["audiveris", "homr"], default="audiveris")
 args = parser.parse_args()
 sys.path.insert(0, str(args.root / "scripts" / "runtime"))
 from PIL import Image
@@ -68,13 +70,14 @@ def validate(raw):
             raise PipelineError("geometry-mismatch", "Preprocessing metadata no longer matches the original raster")
     return data
 
+started = time.monotonic()
 try:
     raw = args.job / "raw"
     if args.operation == "recognize":
         if raw.exists():
             validate(raw)
             manifest = json.loads((raw / "manifest.json").read_text(encoding="utf-8"))
-            if manifest.get("preprocessing", "none") != args.preprocess or manifest["sourceSha256"] != hashlib.sha256(source.read_bytes()).hexdigest():
+            if manifest.get("engineKind", "audiveris") != args.engine or manifest.get("preprocessing", "none") != args.preprocess or manifest["sourceSha256"] != hashlib.sha256(source.read_bytes()).hexdigest():
                 raise PipelineError("recognition-settings-mismatch", "Cannot reuse recognition with a different source or preprocessing mode")
             print("Reusing previously validated recognition for this immutable source")
         else:
@@ -90,6 +93,23 @@ try:
                         raise PipelineError("unsupported-image", "Only one image frame up to 20 million pixels is supported")
                     image.convert("RGB").save(attempt / "recognition.png")
             preprocess(attempt / "recognition.png", attempt / "engine-input.png", args.preprocess)
+            if args.engine == 'homr':
+                python = Path(os.environ.get('MUSICRECOGNITION_HOMR_PYTHON', str(args.root / '.tools/homr/venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python'))))
+                if not python.is_file() or not (python.parent.parent.parent / 'runtime.json').is_file():
+                    raise PipelineError('homr-not-provisioned', 'homr independent Python/manifest is missing')
+                run([python, args.root / 'scripts/runtime/homr_runner.py', '--image', attempt / 'engine-input.png', '--output', attempt])
+                from homr_adapter import adapt
+                try:
+                    adapt(attempt)
+                except ValueError as error:
+                    raise PipelineError('homr-coordinate-unavailable', str(error)) from error
+                validate(attempt)
+                (attempt / 'manifest.json').write_text(json.dumps({'sourceSha256':hashlib.sha256(source.read_bytes()).hexdigest(),
+                    'engineKind':'homr', 'engine':'homr', 'preprocessing':args.preprocess, 'adapterRevision':2,
+                    'elapsedSeconds':time.monotonic()-started}), encoding='utf-8')
+                attempt.rename(raw)
+                print('homr recognition and coordinate adaptation completed', flush=True)
+                sys.exit(0)
             app = args.root / ".tools" / "audiveris" / "Audiveris"
             classes = args.root / ".tools" / "poc-classes"
             compiled = classes / "musicrecognition" / "poc" / "ExportNotes.class"
@@ -112,7 +132,7 @@ try:
             notes = apply_to_notes(json.loads(notes_path.read_text(encoding="utf-8")), evidence)
             notes_path.write_text(json.dumps(notes, ensure_ascii=False), encoding="utf-8")
             validate(attempt)
-            (attempt / "manifest.json").write_text(json.dumps({"sourceSha256":hashlib.sha256(source.read_bytes()).hexdigest(),"engine":"Audiveris 5.11.0","preprocessing":args.preprocess,"adapterRevision":4}),encoding="utf-8")
+            (attempt / "manifest.json").write_text(json.dumps({"sourceSha256":hashlib.sha256(source.read_bytes()).hexdigest(),"engine":"Audiveris 5.11.0","preprocessing":args.preprocess,"adapterRevision":4,"elapsedSeconds":time.monotonic()-started}),encoding="utf-8")
             attempt.rename(raw)
     else:
         if not args.version or not args.labels or not args.font:
@@ -122,8 +142,9 @@ try:
         if not target.exists():
             target.parent.mkdir(exist_ok=True)
             attempt = args.job / ("render-" + uuid.uuid4().hex)
-            command = [sys.executable,args.root / "scripts" / "runtime" / "annotate.py","--image",raw / "recognition.png","--omr",raw / "score.omr",
+            command = [sys.executable,args.root / "scripts" / "runtime" / "annotate.py","--image",raw / "recognition.png",
                        "--mxl",raw / "score.mxl","--notes",raw / "notes-1.json","--output",attempt,"--labels",args.labels,"--font",args.font]
+            command += ['--mask', raw / 'binary.png'] if (raw / 'binary.png').exists() else ['--omr', raw / 'score.omr']
             if args.style: command += ["--style", args.style]
             if (raw / "preprocessing.json").exists(): command += ["--preprocessing", raw / "preprocessing.json"]
             if args.extension == ".pdf":

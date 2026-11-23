@@ -45,6 +45,8 @@ dotnet list MusicRecognition.slnx package --vulnerable --include-transitive
 
 ## P3 前端生成与查询依赖
 
+2026-10-31：可选 homr 使用单独的 `.tools/homr/venv`，完整依赖固定在 `scripts/setup/requirements-homr.txt`，源码提交、Python / uv 和三个 ONNX 模型摘要集中在 `scripts/setup/homr.lock.json`。不合并进主识谱 Python 环境，避免 NumPy 等版本冲突；不新增 NuGet / npm 推理包。准备脚本显式恢复，任务执行期间只检查已安装模型。详见 [homr A/B 报告](homr-validation.md)。
+
 前端统一在 `MusicRecognition.Web/package.json` 固定直接依赖，`package-lock.json` 锁定完整依赖树；使用 npm ci 还原。新增 hey-api 0.99.0（开发时生成）、TanStack Vue Query 5.104.5、显式 Vue 3.5.44、tsx 4.23.15；Zod 4.6.7 和 @nuxt/eslint 1.17.0 沿用。使用官方 Fetch 客户端，不采用面向 Nuxt 3 的 beta 客户端。`overrides.js-yaml = 4.3.2` 修复生成器传递依赖审计问题，不屏蔽漏洞。剩余 11 个 high 来自现有 Nuxt 依赖链，详见 [P3 集成报告](p3-api-query.md)。
 
 后端 OpenAPI 是 API 类型来源；`api:pull` 更新快照，`api:generate` 生成 SDK / 类型 / Zod，`api:check` 检查生成漂移，`test:contract` 检查关键契约和运行时校验。生成产物应纳入版本控制，不手工修改，也不重复维护另一套 API 类型。

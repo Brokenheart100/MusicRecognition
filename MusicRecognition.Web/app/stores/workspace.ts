@@ -1,16 +1,19 @@
 import { acceptHMRUpdate, defineStore, skipHydrate } from 'pinia'
-import { StorageSerializers, useRefHistory, useSessionStorage, useStorage as useVueUseStorage } from '@vueuse/core'
-import { defaultAnnotationStyle, DraftSchema, RecentScoreSchema, type AnnotationStyle, type Draft, type Numbering, type Pitch, type RecentScore, type Revision } from '~~/shared/types/score'
+import { StorageSerializers, useSessionStorage, useStorage as useVueUseStorage } from '@vueuse/core'
+import { defaultAnnotationStyle, RecentScoreSchema, type AnnotationStyle, type Draft, type Numbering, type Pitch, type RecentScore } from '~~/shared/types/score'
+import { applyDraftEdit, draftFingerprint, emptyDraft, normalizeDraft, parseStoredDraft, revisionBaseline, revisionPayload, snapshotPlacements, snapshotStyles, useDraftHistory } from '~/utils/draft'
+import { useConfirmStore } from './confirm'
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value))
-const emptyDraft = (): Draft => ({ pitches: {}, placements: {}, numbering: { mode: 'FixedC', keys: [] }, annotationStyle: defaultAnnotationStyle(), styles: {} })
 const storageKey = 'pujian:scores:v1'
 
 export const useWorkspaceStore = defineStore('workspace', () => {
+  const { t } = useI18n()
+  const confirmation = useConfirmStore()
   const error = ref('')
   const storageOptions = {
     initOnMounted: true, writeDefaults: false, flush: 'sync' as const, listenToStorageChanges: false,
-    onError: () => { error.value = '浏览器未能保存本地记录。请保持本页面打开并及时下载乐谱。' },
+    onError: () => { error.value = t('store.storageError') },
   }
   // Server state must never overwrite browser-owned records during Pinia hydration.
   const recent = skipHydrate(useVueUseStorage<RecentScore[]>(storageKey, [], undefined, {
@@ -52,24 +55,21 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const selection = ref<string[]>([])
   let syncingSelection = false
   const draft = ref<Draft>(emptyDraft())
-  const history = useRefHistory(draft, { capacity: 50, clone: true, flush: 'sync' })
+  // Every edit replaces draft.value instead of mutating it, so snapshots can share the old object.
+  const history = useDraftHistory(draft)
   const { canUndo, canRedo } = history
   // The key changes only after a revision has loaded, before restoring its draft.
   const storedDraftKey = ref('pujian:draft:inactive')
   const storedDraft = useVueUseStorage<Draft | null>(storedDraftKey, null, undefined, {
     ...storageOptions,
     serializer: {
-      read: (raw) => {
-        try {
-          const parsed = DraftSchema.safeParse(JSON.parse(raw))
-          return parsed.success ? parsed.data : null
-        } catch { return null }
-      },
+      read: parseStoredDraft,
       write: JSON.stringify,
     },
   })
   const uploading = ref(false)
   const enhanceScan = ref(false)
+  const recognitionEngine = ref<'Audiveris' | 'Homr'>('Audiveris')
   const saving = ref(false)
   const ready = ref(false)
   let epoch = 0
@@ -93,13 +93,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function toggle(id: string) { select(selection.value.includes(id) ? selection.value.filter(value => value !== id) : [...selection.value, id]) }
   function selectRegion(ids: string[], additive = false) { select(additive ? [...selection.value, ...ids] : ids) }
   function clearSelection() { select([]) }
-  const snapshotStyles = (value: Revision['score']) => Object.fromEntries(value.notes.filter(n => n.style).map(n => [n.id, { fontSizePoints: n.style!.fontSizePoints, color: n.style!.color.toUpperCase() }]))
-  // Server snapshots are the source of truth for manual placements, so a saved drag survives re-opening the revision.
-  const snapshotPlacements = (value: Revision['score']) => Object.fromEntries(value.notes.filter(n => n.placement).map(n => [n.id, n.placement!]))
-  const baseline = computed(() => revision.value ? JSON.stringify({ pitches: {}, placements: snapshotPlacements(revision.value.score), numbering: revision.value.score.numbering, annotationStyle: revision.value.score.annotationStyle ?? defaultAnnotationStyle(), styles: snapshotStyles(revision.value.score) }) : '')
-  const draftStyles = computed(() => Object.fromEntries(Object.entries(draft.value.styles ?? {}).map(([id, style]) => [id, { fontSizePoints: style.fontSizePoints, color: style.color.toUpperCase() }])))
   const historical = computed(() => !!revision.value && revision.value.version !== job.value?.currentRevision)
-  const dirty = computed(() => !!revision.value && JSON.stringify({ ...draft.value, styles: draftStyles.value, annotationStyle: { fontSizePoints: draft.value.annotationStyle.fontSizePoints, color: draft.value.annotationStyle.color.toUpperCase() } }) !== baseline.value)
+  // Server snapshots are the source of truth for manual placements, so a saved drag survives re-opening the revision.
+  const dirty = computed(() => !!revision.value && draftFingerprint(draft.value) !== revisionBaseline(revision.value.score))
   const processing = computed(() => !!job.value && ['Queued', 'Processing', 'Cancelling'].includes(job.value.state))
   const exporting = computed(() => (revision.value && ['Queued', 'Processing'].includes(revision.value.state)) || (!!documentExport.value && ['Queued', 'Processing'].includes(documentExport.value.state)))
   const pages = computed(() => documentJob.value?.pages ?? [])
@@ -115,26 +111,30 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function problem(cause: unknown): string {
     const value = cause as { title?: string; detail?: string; data?: { title?: string; detail?: string }; statusCode?: number; message?: string }
     const code = value.data?.title ?? value.title
+    const statusCode = typeof value.statusCode === 'number' ? value.statusCode : undefined
     const messages: Record<string, string> = {
-      'revision-conflict': '这份乐谱已有新版本，请回到最新版后再编辑。',
-      'concurrency-conflict': '乐谱状态刚刚发生变化，请重新打开后再试。',
-      'not-found': '暂时无法打开这份乐谱，访问凭据可能已经失效。',
-      'invalid-token': '本地访问凭据缺失，请重新上传原文件。',
-      'unsupported-type': '请选择 PDF、JPG 或 PNG 乐谱。',
-      'file-too-large': '文件超过 20 MB，请先缩小文件。',
+      'revision-conflict': t('store.revisionConflict'),
+      'concurrency-conflict': t('store.concurrencyConflict'),
+      'not-found': t('store.notFound'),
+      'invalid-token': t('store.invalidToken'),
+      'unsupported-type': t('store.unsupportedType'),
+      'file-too-large': t('store.fileTooLarge'),
     }
-    return (code && messages[code]) || value.data?.detail || value.detail || value.message || (cause instanceof Error ? cause.message : '') || '连接暂时中断，请稍后重试。'
+    if (code && messages[code]) return messages[code]
+    if (statusCode && statusCode >= 500) return t('store.serviceUnavailable')
+    return value.data?.detail || value.detail || value.message || (cause instanceof Error ? cause.message : '') || t('store.connectionLost')
   }
   function draftKey() { return currentJobId.value && revision.value ? `pujian:draft:${currentJobId.value}:${revision.value.version}` : '' }
   watch(draft, () => {
     if (!ready.value || restoring || !draftKey() || storedDraftKey.value !== draftKey()) return
-    storedDraft.value = dirty.value ? clone(draft.value) : null
+    // useStorage serializes synchronously; a defensive clone here would double the write cost.
+    storedDraft.value = dirty.value ? draft.value : null
   }, { deep: true, flush: 'sync' })
 
   function restoreDraft(value: Draft) {
     history.pause()
     // Normalize here so every later read can assume all five maps exist.
-    draft.value = { pitches: value.pitches ?? {}, placements: value.placements ?? {}, numbering: value.numbering, annotationStyle: value.annotationStyle, styles: value.styles ?? {} }
+    draft.value = normalizeDraft(value)
     history.resume(true)
     history.clear()
   }
@@ -162,36 +162,36 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
   async function selectPage(number: number) {
     if (!multiPage.value || number < 1 || number > pages.value.length || number === pageNumber.value) return
-    if (dirty.value && !confirm('当前页有未保存修改，切换后草稿会保留在本机。')) return
+    if (dirty.value && !await confirmation.ask({ title: t('store.confirmPageSwitchTitle'), description: t('store.confirmPageSwitch'), confirmLabel: t('common.continue') })) return
     ++epoch; pageNumber.value = number; selectedVersion.value = 0; selectedId.value = null; clearSelection()
     restoredRevision = ''; history.clear(); error.value = ''
   }
   async function upload(file: File) {
     if (uploading.value) return
-    if (!/\.(pdf|jpe?g|png)$/i.test(file.name)) { error.value = '请选择 PDF、JPG 或 PNG 乐谱。'; return }
-    if (file.size > 20 * 1024 * 1024) { error.value = '文件不能超过 20 MB。'; return }
+    if (!/\.(pdf|jpe?g|png)$/i.test(file.name)) { error.value = t('store.unsupportedType'); return }
+    if (file.size > 20 * 1024 * 1024) { error.value = t('store.fileTooLarge'); return }
     if (/\.pdf$/i.test(file.name)) {
       uploading.value = true
       try {
         const issue = await inspectScorePdf(file)
-        if (issue) { error.value = issue; return }
-      } catch { error.value = '暂时无法检查 PDF，请刷新页面后重试。'; return }
+        if (issue) { error.value = issue.key === 'pdfTooManyPages' ? t('store.pdfTooManyPages', { pages: issue.pages }) : t('store.' + issue.key); return }
+      } catch { error.value = t('store.inspectPdfError'); return }
       finally { uploading.value = false }
     }
-    if (dirty.value && !confirm('当前有未保存的修改，仍要打开另一份乐谱吗？草稿会保留在本机。')) return
+    if (dirty.value && !await confirmation.ask({ title: t('store.confirmOpenAnotherTitle'), description: t('store.confirmOpenAnother'), confirmLabel: t('common.continue') })) return
     const ticket = ++epoch
     uploading.value = true; error.value = ''
     const preprocessing = enhanceScan.value ? 'Adaptive' : 'None'
     try {
       // Retrying the same interrupted upload reuses its capability and idempotency key.
-      const identity = `${file.name}:${file.size}:${file.lastModified}:${preprocessing}`
+      const identity = `${file.name}:${file.size}:${file.lastModified}:${preprocessing}:${recognitionEngine.value}`
       let pending = pendingUpload.value
       if (!pending || pending.identity !== identity) {
         const bytes = crypto.getRandomValues(new Uint8Array(32))
         pending = { identity, token: Array.from(bytes, x => x.toString(16).padStart(2, '0')).join(''), key: crypto.randomUUID() }
         pendingUpload.value = pending
       }
-      const value = await server.importMutation.mutateAsync({ file, preprocessing, token: pending.token, key: pending.key })
+      const value = await server.importMutation.mutateAsync({ file, preprocessing, engine: recognitionEngine.value, token: pending.token, key: pending.key })
       if (ticket !== epoch) return
       const item = { id: value.id, name: value.fileName, token: pending.token, date: new Date().toISOString() }
       recent.value = [item, ...recent.value.filter(r => r.id !== item.id)].slice(0, 40)
@@ -200,14 +200,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     } catch (cause) { error.value = problem(cause) } finally { uploading.value = false }
   }
   async function example() {
-    try { const blob = await $fetch<Blob>('/samples/minuet.pdf', { responseType: 'blob' }); await upload(new File([blob], '小步舞曲 · Minuet.pdf', { type: 'application/pdf', lastModified: 1 })) }
+    try { const blob = await $fetch<Blob>('/samples/minuet.pdf', { responseType: 'blob' }); await upload(new File([blob], t('store.exampleFile'), { type: 'application/pdf', lastModified: 1 })) }
     catch (cause) { error.value = problem(cause) }
   }
   function change(edit: (value: Draft) => void) {
     if (!editable.value) return
-    const next = clone(draft.value); edit(next)
-    if (JSON.stringify(next) === JSON.stringify(draft.value)) return
-    draft.value = next
+    const next = applyDraftEdit(draft.value, edit)
+    if (next) draft.value = next
   }
   function pitch(id: string) { return draft.value.pitches[id] ?? notes.value.find(n => n.id === id)?.pitch }
   function placement(id: string) { return draft.value.placements[id] ?? notes.value.find(n => n.id === id)?.placement ?? null }
@@ -221,9 +220,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     change(d => {
       for (const value of values) {
         if (!ids.has(value.id)) continue
-        d.placements[value.id] = { hidden: false,
+        d.placements[value.id] = {
+          hidden: false,
           x: Math.max(2, Math.min((revision.value?.score.width ?? 3) - 3, value.x)),
-          y: Math.max(2, Math.min((revision.value?.score.height ?? 3) - 3, value.y)) }
+          y: Math.max(2, Math.min((revision.value?.score.height ?? 3) - 3, value.y))
+        }
       }
     })
   }
@@ -270,30 +271,15 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function undo() { if (editable.value) history.undo() }
   function redo() { if (editable.value) history.redo() }
   async function save(recalculate = false) {
-    if (!active.value || !currentJobId.value || !revision.value || !editable.value) {
-      console.info('[save] skipped:', { active: !!active.value, job: !!currentJobId.value, revision: !!revision.value, editable: editable.value, historical: historical.value, exporting: exporting.value, saving: saving.value })
-      return
-    }
+    if (!active.value || !currentJobId.value || !revision.value || !editable.value) return
     saving.value = true; error.value = ''; const ticket = epoch
     const oldDraftKey = draftKey()
     try {
-      if (!dirty.value && !recalculate) { console.info('[save] skipped: nothing to save'); return }
+      if (!dirty.value && !recalculate) return
       const id = currentJobId.value
       const saved = revision.value
-      // Overrides present in the draft are written; ones removed from the draft are cleared with null.
-      const styleChanges = [
-        ...Object.entries(draftStyles.value).map(([noteId, style]) => ({ noteId, style })),
-        ...saved.score.notes.filter(n => n.style && !draftStyles.value[n.id]).map(n => ({ noteId: n.id, style: null })),
-      ]
-      const value = await server.revisionMutation.mutateAsync({
-        id, body: {
-          expectedRevision: saved.version, numbering: draft.value.numbering,
-          annotationStyle: draft.value.annotationStyle,
-          corrections: Object.entries(draft.value.pitches).map(([noteId, value]) => ({ noteId, pitch: value })),
-          placements: Object.entries(draft.value.placements).map(([noteId, value]) => ({ noteId, placement: value })),
-          styleChanges,
-        }
-      })
+      const body = revisionPayload(draft.value, saved.score)
+      const value = await server.revisionMutation.mutateAsync({ id, body: { expectedRevision: saved.version, ...body } })
       if (ticket !== epoch) return
       if (storedDraftKey.value === oldDraftKey) storedDraft.value = null
       selectedVersion.value = value.version
@@ -302,7 +288,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     } catch (cause) { if (ticket === epoch) error.value = problem(cause) } finally { saving.value = false }
   }
   async function showVersion(version: number) {
-    if (dirty.value && !confirm('打开其他版本前，保留本机草稿并继续吗？')) return
+    if (dirty.value && !await confirmation.ask({ title: t('store.confirmVersionTitle'), description: t('store.confirmVersion'), confirmLabel: t('common.continue') })) return
     restoredRevision = ''; selectedId.value = null; clearSelection(); selectedVersion.value = version
   }
   async function download() {
@@ -310,7 +296,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     try {
       const blob = await server.artifact(currentJobId.value, revision.value.version)
       const url = URL.createObjectURL(blob); const link = document.createElement('a')
-      link.href = url; link.download = `${active.value.name.replace(/\.[^.]+$/, '')} · 标注版 v${revision.value.version}.pdf`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
+      link.href = url; link.download = t('store.annotatedFile', { name: active.value.name.replace(/\.[^.]+$/, ''), version: revision.value.version }); link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
     } catch (cause) { error.value = problem(cause) }
   }
   async function exportDocument() {
@@ -323,13 +309,19 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     try {
       const blob = await server.artifact(active.value.id, documentExport.value.version)
       const url = URL.createObjectURL(blob); const link = document.createElement('a')
-      link.href = url; link.download = `${active.value.name.replace(/\.[^.]+$/, '')} · 全曲标注版 v${documentExport.value.version}.pdf`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
+      link.href = url; link.download = t('store.fullAnnotatedFile', { name: active.value.name.replace(/\.[^.]+$/, ''), version: documentExport.value.version }); link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
     } catch (cause) { error.value = problem(cause) }
   }
-  async function command(action: 'cancel' | 'retry') {
-    if (!active.value) return
-    try { await server.commandMutation.mutateAsync(action); await server.refresh() }
-    catch (cause) { error.value = problem(cause) }
+  async function command(action: 'cancel' | 'retry', id = active.value?.id) {
+    if (!active.value || !id) return false
+    try { await server.commandMutation.mutateAsync({ action, id }); await server.refresh(); return true }
+    catch (cause) { error.value = problem(cause); return false }
+  }
+  async function rerecognizePage() {
+    if (!currentJobId.value || processing.value || exporting.value) return
+    if ((job.value?.state === 'Ready' || dirty.value) && !await confirmation.ask({ title: t('score.rerecognizeTitle'), description: t('score.rerecognizeDescription'), confirmLabel: t('common.continue') })) return
+    if (!await command('retry', currentJobId.value)) return
+    selectedVersion.value = 0; selectedId.value = null; clearSelection()
   }
   function home() { ++epoch; active.value = null; selectedVersion.value = 0; selectedId.value = null; clearSelection(); error.value = ''; activeId.value = null; restoredRevision = ''; history.clear() }
   function forget(id: string) { recent.value = recent.value.filter(r => r.id !== id); if (active.value?.id === id) home() }
@@ -342,10 +334,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   // One blob belongs to the app-scoped store and is replaced on open/upload; a hot page remount can reuse it.
   function dispose() { ++epoch }
   return {
-    recent, active, job, documentJob, pageNumber, documentExport, multiPage, pages, revision, annotations, source, selectedId, draft, canUndo, canRedo, uploading, enhanceScan, saving, error, ready,
-    currentJobId, musicXml: server.musicXml, reflow: server.reflow,
+    recent, active, job, documentJob, pageNumber, documentExport, multiPage, pages, revision, annotations, source, selectedId, draft, canUndo, canRedo, uploading, enhanceScan, recognitionEngine, saving, error, ready,
+    currentJobId, musicXml: server.musicXml,
     notes, selected, selectedNotes, selection, historical, dirty, processing, exporting, editable, pending, hiddenCount,
-    init, open, upload, select, toggle, selectRegion, clearSelection, styleOf, styleOverridden, styleTargets, setStyle, resetStyle, example, selectPage, pitch, placement, correct, position, positionMany, hide, hideMany, automatic, numbering, annotationStyle, undo, redo, save, showVersion, download, exportDocument, downloadDocument, command, home, forget, dispose, poll
+    init, open, upload, select, toggle, selectRegion, clearSelection, styleOf, styleOverridden, styleTargets, setStyle, resetStyle, example, selectPage, pitch, placement, correct, position, positionMany, hide, hideMany, automatic, numbering, annotationStyle, undo, redo, save, showVersion, download, exportDocument, downloadDocument, command, rerecognizePage, home, forget, dispose, poll
   }
 })
 

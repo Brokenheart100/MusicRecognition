@@ -23,7 +23,7 @@ a=json.load(sys.stdin)
 base='http://127.0.0.1:8080/api/scores/'+a['id']
 def get(url):
     return urllib.request.urlopen(urllib.request.Request(url,headers={'X-Score-Token':a['token']}),timeout=30).read()
-job=json.loads(get(base));pdf=get(base+'/artifacts/annotated.pdf')
+job=json.loads(get(base));pdf=get(base+'/revisions/'+str(job['currentRevision'])+'/annotated-pdf')
 Path('/tmp/p5-restored.pdf').write_bytes(pdf)
 print(json.dumps({'id':job['id'],'state':job['state'],'revision':job['currentRevision'],'pdfSha256':hashlib.sha256(pdf).hexdigest(),'pdfBase64':base64.b64encode(pdf).decode('ascii')}))
 '''

@@ -1,5 +1,5 @@
 using MusicRecognition.Application;
-using MusicRecognition.Infrastructure;
+using MusicRecognition.Infrastructure.Observability;
 using Xunit;
 
 public class ScoreDiagnosticsTests

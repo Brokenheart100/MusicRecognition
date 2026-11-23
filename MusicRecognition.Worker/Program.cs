@@ -1,4 +1,5 @@
 using MusicRecognition.Infrastructure;
+using MusicRecognition.Infrastructure.Recognition;
 using MusicRecognition.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);

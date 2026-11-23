@@ -1,6 +1,7 @@
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using MusicRecognition.Infrastructure;
+using MusicRecognition.Infrastructure.HealthChecks;
+using MusicRecognition.Infrastructure.Observability;
 using Xunit;
 
 public sealed class OperationsTests

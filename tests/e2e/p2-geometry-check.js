@@ -1,9 +1,13 @@
 // Independent oracle: PDF.js's rendered viewport transform versus the SVG screen matrix.
 async (page) => {
+  const setZoom = async (value) => {
+    await page.getByRole('combobox', { name: '缩放比例', exact: true }).click()
+    await page.getByRole('option', { name: `${value}%`, exact: true }).click()
+  }
   const rows = []
   await page.locator('.note-target').first().waitFor({ timeout: 45000 })
   for (const zoom of [100, 150, 200]) {
-    await page.getByRole('combobox', { name: '缩放比例', exact: true }).selectOption(String(zoom))
+    await setZoom(zoom)
     await page.waitForFunction(() => {
       const canvas = document.querySelector('.pdf-canvas'), svg = document.querySelector('.annotation-overlay')
       if (!canvas?.dataset.pdfTransform || !svg) return false
@@ -14,7 +18,7 @@ async (page) => {
       const id = localStorage.getItem('pujian:active'), item = JSON.parse(localStorage.getItem('pujian:scores:v1')).find(r => r.id === id)
       const headers = { 'X-Score-Token': item.token }
       const job = await (await fetch(`/api/scores/${id}`, { headers })).json()
-      const data = await (await fetch(`/api/scores/${id}/artifacts/annotations.json?version=${job.currentRevision}`, { headers })).json()
+      const data = await (await fetch(`/api/scores/${id}/revisions/${job.currentRevision}/annotations`, { headers })).json()
       const canvas = document.querySelector('.pdf-canvas'), rect = canvas.getBoundingClientRect()
       const t = JSON.parse(canvas.dataset.pdfTransform), ctm = document.querySelector('.annotation-overlay > g').getScreenCTM()
       const [left, , , top] = data.pdfGeometry.cropBox
@@ -26,10 +30,10 @@ async (page) => {
         const actual = new DOMPoint(x, y).matrixTransform(ctm)
         error = Math.max(error, Math.abs(actual.x - expected.x), Math.abs(actual.y - expected.y))
       }
-      return { scoreId: id, zoom: Number(document.querySelector('[aria-label="缩放比例"]').value), rotation: data.pdfGeometry.rotation, crop: data.pdfGeometry.cropBox, anchors: data.annotations.length, maxCssPixelError: error }
+      return { scoreId: id, zoom: Number(document.querySelector('[role="combobox"][aria-label="缩放比例"]')?.textContent?.replace('%', '')), rotation: data.pdfGeometry.rotation, crop: data.pdfGeometry.cropBox, anchors: data.annotations.length, maxCssPixelError: error }
     }))
   }
   if (rows.some(row => row.maxCssPixelError >= .1)) throw new Error(`SVG/PDF registration failed: ${JSON.stringify(rows)}`)
-  await page.getByRole('combobox', { name: '缩放比例', exact: true }).selectOption('100')
+  await setZoom(100)
   return rows
 }

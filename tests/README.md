@@ -27,12 +27,10 @@ pwsh -File tests/run.ps1
 
 常用示例：
 
+homr 适配器的无模型测试包含在默认 Python 套件中。真实 A/B 使用 `e2e/validate-homr-ab.py --url <API> --samples <JSON清单> --output output/homr-ab/live`，清单格式为 `[{"name":"样本标识","path":"原文件路径"}]`，分别创建 Audiveris / Homr 专用任务，等待逐页导出及整份 PDF 合并；凭据和结果只写入忽略的输出目录。同目录再次执行可恢复等待，不能修改源样本。真实结果见 [专项报告](../docs/homr-validation.md)。
+
 ```powershell
-.tools/poc-python/Scripts/python.exe tests/e2e/validate-p4.py --url http://localhost:<API端口> --source MusicRecognition.Web/public/samples/minuet.pdf --output output/my-validation --access tmp/my-validation-access.json
 .tools/poc-python/Scripts/python.exe tests/acceptance/verify-p3-export.py --source <原PDF> --pdf <整份标注PDF> --evidence <验收输出目录>
-.tools/poc-python/Scripts/python.exe tests/acceptance/verify-fragment-export.py --job output/backend/<拼谱任务无横线ID> --version <保存版本> --output output/fragment-validation/export-verification.json
 ```
 
-图片片段拼谱使用 `tests/e2e/fragments-browser-check.js` 在专用 Playwright 会话复跑，先准备可选 music21 / MuseScore 依赖和用户提供的两张 Orange 图片。它会上传图片并创建成功、非法范围及恢复修订；实现范围、真实结果和限制见 [拼谱验证报告](../docs/fragment-score-composition-validation.md)。
-
-P5 的 `tests/e2e/validate-p5.py` 覆盖真实 PDF、Worker 中断、幂等、413/429、权限和有界读取；`validate-p5-fragments.py` 覆盖 Linux 截图拼谱。`tests/acceptance/validate-p5-retention.ps1` 会创建专用过期夹具、备份并应用清理，`verify-p5-restore.py` 在新的还原项目验证原凭据与 PDF 字节一致。它们需专用 Compose 部署，必须与停写备份串行执行，见 [P5 运维报告](../docs/p5-operations.md)。
+P5 的 `tests/e2e/validate-p5.py` 覆盖真实 PDF、Worker 中断、幂等、413/429、权限和有界读取。`tests/acceptance/validate-p5-retention.ps1` 会创建专用过期夹具、备份并应用清理，`verify-p5-restore.py` 在新的还原项目验证原凭据与 PDF 字节一致。它们需专用 Compose 部署，必须与停写备份串行执行，见 [P5 运维报告](../docs/p5-operations.md)。

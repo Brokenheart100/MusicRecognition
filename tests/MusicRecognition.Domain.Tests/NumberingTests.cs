@@ -1,4 +1,6 @@
-using MusicRecognition.Domain;
+using MusicRecognition.Domain.Enums;
+using MusicRecognition.Domain.Services;
+using MusicRecognition.Domain.ValueObjects;
 using Xunit;
 
 public class NumberingTests

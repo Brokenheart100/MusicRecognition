@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
-import { useElementSize } from '@vueuse/core'
-import type { Annotation } from '~~/shared/types/score'
+import { useDebounceFn, useElementSize } from '@vueuse/core'
+import type { Annotation, Note } from '~~/shared/types/score'
 
 const props = defineProps<{ zoom: number; labels: boolean; staff: string; voice: string }>()
 const store = useWorkspaceStore()
+const { t } = useI18n()
 const stage = ref<HTMLElement>()
 const svgEl = ref<SVGSVGElement>()
 const canvas = ref<HTMLCanvasElement>()
@@ -39,29 +40,50 @@ const matrix = computed(() => {
 })
 const visibleNotes = computed(() => store.notes.filter(n => (props.staff === 'all' || String(n.staff) === props.staff) && (props.voice === 'all' || String(n.voice) === props.voice)))
 const visibleIds = computed(() => new Set(visibleNotes.value.map(n => n.id)))
-const entries = computed(() => store.annotations?.annotations.filter(a => visibleIds.value.has(a.noteId)).map(a => {
-  // Per-note overrides from the draft win; otherwise the page-wide style applies.
-  const style = store.styleOf(a.noteId)
-  const factor = store.annotations?.pdfGeometry ? 72 / store.annotations.pdfGeometry.rasterDpi : 595.2755905512 / (store.annotations?.width || 1)
+const rovingId = computed(() => visibleNotes.value.some(note => note.id === store.selectedId) ? store.selectedId : visibleNotes.value[0]?.id ?? null)
+const entries = computed(() => {
   const snapshot = store.revision?.score
-  const savedStyle = snapshot?.notes.find(n => n.id === a.noteId)?.style ?? snapshot?.annotationStyle
-  // Keep the server's per-chord fitted size after saving. Only unsaved switches
-  // from a fixed size show the preferred automatic size until export lays it out.
-  const pixels = style.fontSizePoints == null
-    ? savedStyle?.fontSizePoints == null ? a.fontSize : preferredAnnotationPixels(snapshot?.interline ?? a.fontSize, factor)
-    : Math.round(style.fontSizePoints / factor)
-  const ratio = pixels / a.fontSize
-  return { ...a, color: style.color, fontSize: pixels, width: a.width * ratio, height: a.height * ratio,
-    baselineOffset: a.baselineOffset.map(value => value * ratio) as [number, number],
-    dots: a.dots.map(dot => dot.map(value => value * ratio) as [number, number, number]) }
-}) ?? [])
+  const notesById = new Map(snapshot?.notes.map(note => [note.id, note]) ?? [])
+  const factor = store.annotations?.pdfGeometry ? 72 / store.annotations.pdfGeometry.rasterDpi : 595.2755905512 / (store.annotations?.width || 1)
+  return store.annotations?.annotations.filter(a => visibleIds.value.has(a.noteId)).map(a => {
+    // Per-note overrides from the draft win; otherwise the page-wide style applies.
+    const style = store.styleOf(a.noteId)
+    const savedStyle = notesById.get(a.noteId)?.style ?? snapshot?.annotationStyle
+    // Keep the server's per-chord fitted size after saving. Only unsaved switches
+    // from a fixed size show the preferred automatic size until export lays it out.
+    const pixels = style.fontSizePoints == null
+      ? savedStyle?.fontSizePoints == null ? a.fontSize : preferredAnnotationPixels(snapshot?.interline ?? a.fontSize, factor)
+      : Math.round(style.fontSizePoints / factor)
+    const ratio = pixels / a.fontSize
+    return { ...a, color: style.color, fontSize: pixels, width: a.width * ratio, height: a.height * ratio,
+      baselineOffset: a.baselineOffset.map(value => value * ratio) as [number, number],
+      dots: a.dots.map(dot => dot.map(value => value * ratio) as [number, number, number]) }
+  }) ?? []
+})
 const selectedAnnotation = computed(() => entries.value.find(a => a.noteId === store.selectedId))
+// Mark notes whose annotation has no visible number, whether the layout left it
+// pending or a manual draft was cleared. A missing annotation entry has no
+// placement flow behind it, so it is not signalled here; hidden annotations are
+// intentionally silent.
+const unannotatedIds = computed(() => {
+  const byId = new Map(entries.value.map(a => [a.noteId, a]))
+  return new Set(visibleNotes.value.flatMap(note => {
+    const annotation = byId.get(note.id)
+    if (!annotation || store.placement(note.id)?.hidden || annotation.status === 'hidden') return []
+    return location(annotation) ? [] : [note.id]
+  }))
+})
+const unannotatedCount = computed(() => unannotatedIds.value.size)
 
 function location(a: Annotation): readonly [number, number] | null {
   const anchor = drag.value?.anchors.find(value => value.id === a.noteId)
   if (anchor && drag.value) return [anchor.x + drag.value.dx, anchor.y + drag.value.dy]
   const p = store.draft.placements[a.noteId]
   return p?.x != null && p.y != null ? [p.x, p.y] : a.labelBounds ? [a.labelBounds[0], a.labelBounds[1]] : null
+}
+function noteAria(note: Note) {
+  const base = t('canvas.noteTargetAria', { step: note.pitch.step, octave: note.pitch.octave, measure: note.measure, staff: note.staff })
+  return unannotatedIds.value.has(note.id) ? `${base} ${t('canvas.unannotatedNoteAria')}` : base
 }
 function paths(a: Annotation) {
   const font = store.annotations?.glyphs
@@ -107,8 +129,20 @@ function endMarquee() {
   const from = localPoint({ x: value.startX, y: value.startY }), to = localPoint({ x: value.x, y: value.y })
   if (!from || !to) return
   const left = Math.min(from.x, to.x), right = Math.max(from.x, to.x), top = Math.min(from.y, to.y), bottom = Math.max(from.y, to.y)
-  const ids = visibleNotes.value.filter(n => n.bounds.x < right && n.bounds.x + n.bounds.width > left && n.bounds.y < bottom && n.bounds.y + n.bounds.height > top).map(n => n.id)
-  store.selectRegion(ids, value.additive)
+  const ids = new Set(visibleNotes.value
+    .filter(n => n.bounds.x < right && n.bounds.x + n.bounds.width > left && n.bounds.y < bottom && n.bounds.y + n.bounds.height > top)
+    .map(n => n.id))
+  // Labels live in the blank space around the staff, so a box drawn around
+  // the numbers must select them even when no notehead falls inside the box.
+  if (props.labels) {
+    for (const a of entries.value) {
+      if (store.placement(a.noteId)?.hidden) continue
+      const p = location(a)
+      if (!p) continue
+      if (p[0] < right && p[0] + a.width > left && p[1] < bottom && p[1] + a.height > top) ids.add(a.noteId)
+    }
+  }
+  store.selectRegion([...ids], value.additive)
 }
 function pointerDown(event: PointerEvent) { if (event.button !== 0 || !event.isPrimary) return; if (placing.value) { place(event); return } startMarquee(event) }
 function pointerMove(event: PointerEvent) { if (drag.value) { move(event); return } moveMarquee(event) }
@@ -168,13 +202,19 @@ function place(event: PointerEvent) {
   store.position(store.selectedId, cursor.x - selectedAnnotation.value.width / 2, cursor.y - selectedAnnotation.value.height / 2)
   placing.value = false
 }
-function beginPlaceCurrent() { placing.value = true }
+function beginPlaceCurrent() { if (!store.editable || !selectedAnnotation.value) return; placing.value = true }
 function cancelInteraction() { placing.value = false; drag.value = null; marquee.value = null }
 function nextPending() {
   const pending = store.annotations?.annotations.filter(a => a.status === 'needs-manual-placement' && !store.placement(a.noteId)?.hidden) ?? []
   if (!pending.length) return
   const index = pending.findIndex(a => a.noteId === store.selectedId)
   store.selectedId = pending[(index + 1) % pending.length]!.noteId
+}
+function nextUnannotated() {
+  const ids = [...unannotatedIds.value]
+  if (!ids.length) return
+  const index = store.selectedId ? ids.indexOf(store.selectedId) : -1
+  store.selectedId = ids[(index + 1) % ids.length]!
 }
 async function paint() {
   if (!pdf || !canvas.value) return
@@ -195,7 +235,7 @@ async function paint() {
     task = page.render({ canvas: canvas.value, viewport, transform: [ratio, 0, 0, ratio, 0, 0] })
     await task.promise
     if (ticket === renderSequence) { rendered.value = true; renderError.value = '' }
-  } catch (cause) { if (ticket === renderSequence && (cause as Error).name !== 'RenderingCancelledException') renderError.value = '这份 PDF 暂时无法预览，请尝试下载或重新上传。' }
+  } catch (cause) { if (ticket === renderSequence && (cause as Error).name !== 'RenderingCancelledException') renderError.value = t('canvas.pdfPreviewError') }
   finally { if (ticket === renderSequence) renderPhase.value = 'idle' }
 }
 watch(() => store.source, async (source, previousSource) => {
@@ -218,42 +258,45 @@ watch(() => store.source, async (source, previousSource) => {
     const page = await pdf.getPage(1), viewport = page.getViewport({ scale: 3 })
     fallback.value = { width: viewport.width, height: viewport.height }
     await nextTick(); await paint()
-  } catch { if (ticket === sequence) { renderError.value = '无法读取 PDF 页面，请检查文件是否完整。'; renderPhase.value = 'idle' } }
+  } catch { if (ticket === sequence) { renderError.value = t('canvas.pdfReadError'); renderPhase.value = 'idle' } }
   finally { if (ticket === sequence && renderPhase.value === 'loading') renderPhase.value = 'idle' }
 }, { immediate: true })
-watch(paperWidth, () => void paint())
+watch(paperWidth, useDebounceFn(() => { void paint() }, 100))
 watch(() => store.selectedId, async (id) => {
   placing.value = false
   if (!id) drag.value = null
+  const restoreFocus = !!document.activeElement?.closest('.note-target')
   await nextTick()
-  if (id) stage.value?.querySelector(`.note-target[data-note-id="${id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  const target = id ? stage.value?.querySelector<HTMLElement>(`.note-target[data-note-id="${id}"]`) : null
+  target?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  if (restoreFocus && target) target.focus({ preventScroll: true })
 })
 onBeforeUnmount(() => { ++sequence; ++renderSequence; task?.cancel(); void pdf?.loadingTask.destroy(); if (store.source?.url) URL.revokeObjectURL(store.source.url) })
-defineExpose({ beginPlaceCurrent, cancelInteraction, nextPending, moveSelection })
+defineExpose({ beginPlaceCurrent, cancelInteraction, nextPending, nextUnannotated, unannotatedCount, moveSelection })
 </script>
 
 <template>
   <div ref="stage" class="score-stage" :class="{ 'is-placing': placing }">
     <div v-if="placing" class="placement-hint" role="status">
-      <UIcon name="i-lucide-mouse-pointer-2" /> 点击原谱的空白处放置标注
-      <UButton size="xs" color="neutral" variant="ghost" label="取消" @click="placing = false" />
+      <UIcon name="i-lucide-mouse-pointer-2" /> {{ $t('canvas.placeHint') }}
+      <UButton size="xs" color="neutral" variant="ghost" :label="$t('canvas.cancelPlacement')" @click="placing = false" />
     </div>
     <div v-if="renderError" class="preview-error" role="alert">{{ renderError }}</div>
     <div v-else-if="!store.source" class="preview-loading">
       <UIcon name="i-lucide-loader-circle" class="spin" />
-      <p>正在打开原谱</p>
+      <p>{{ $t('canvas.opening') }}</p>
     </div>
     <div v-else class="score-paper"
       :style="{ width: `${paperWidth}px`, aspectRatio: `${display.width} / ${display.height}` }"
       :data-rendered="rendered" data-testid="score-paper">
-      <canvas v-if="store.source.pdf" ref="canvas" class="pdf-canvas" aria-label="原始钢琴五线谱" />
-      <img v-else :src="store.source.url" alt="原始钢琴五线谱" class="scan-image" @load="rendered = true">
+      <canvas v-if="store.source.pdf" ref="canvas" class="pdf-canvas" :aria-label="$t('canvas.pdfAria')" />
+      <img v-else :src="store.source.url" :alt="$t('canvas.pdfAria')" class="scan-image" @load="rendered = true">
       <div v-if="store.source.pdf && renderPhase !== 'idle'" class="paper-loading" role="status" aria-live="polite">
-        <span><UIcon name="i-lucide-loader-circle" class="spin" /> {{ renderPhase === 'loading' ? '正在读取乐谱' : '正在渲染页面' }}</span>
-        <div class="paper-progress" role="progressbar" aria-label="PDF 页面渲染进度" aria-valuetext="处理中" />
+        <span><UIcon name="i-lucide-loader-circle" class="spin" /> {{ renderPhase === 'loading' ? $t('canvas.reading') : $t('canvas.rendering') }}</span>
+        <div class="paper-progress" role="progressbar" :aria-label="$t('canvas.renderProgressAria')" :aria-valuetext="$t('canvas.processing')" />
       </div>
       <svg v-if="store.annotations" v-show="rendered" ref="svgEl" class="annotation-overlay"
-        :viewBox="`0 0 ${display.width} ${display.height}`" aria-label="简谱标注与音符校对层"
+        :viewBox="`0 0 ${display.width} ${display.height}`" :aria-label="$t('canvas.notationLayerAria')"
         :class="{ 'is-selecting': marquee }" @pointerdown="pointerDown"
         @pointermove="pointerMove" @pointerup="pointerUp" @pointercancel="drag = null; marquee = null">
         <g ref="group" :transform="matrix">
@@ -273,11 +316,18 @@ defineExpose({ beginPlaceCurrent, cancelInteraction, nextPending, moveSelection 
               <circle v-for="(dot, index) in a.dots" :key="index" :cx="dot[0]" :cy="dot[1]" :r="dot[2]" :fill="a.color" />
             </g>
           </g>
-          <g v-for="note in visibleNotes" :key="note.id" role="button" tabindex="0"
-            :aria-label="`校对 ${note.pitch.step}${note.pitch.octave}，小节 ${note.measure}，谱表 ${note.staff}`"
+          <g v-for="note in visibleNotes" :key="note.id" role="button" :tabindex="note.id === rovingId ? 0 : -1"
+            :aria-label="noteAria(note)"
             class="note-target" :data-note-id="note.id" @pointerdown.stop="start($event, note.id)"
             @keydown.enter.prevent="store.selectedId = note.id" @keydown.space.prevent="store.selectedId = note.id"
             @focus="store.selectedId = note.id">
+            <circle v-if="unannotatedIds.has(note.id)" class="note-attention"
+              :cx="note.bounds.x + note.bounds.width / 2" :cy="note.bounds.y + note.bounds.height / 2"
+              :r="Math.max(note.bounds.width, note.bounds.height) / 2 + 7"
+              vector-effect="non-scaling-stroke" aria-hidden="true" />
+            <rect class="note-focus-ring" :x="note.bounds.x - 9" :y="note.bounds.y - 9"
+              :width="note.bounds.width + 18" :height="note.bounds.height + 18" rx="7"
+              vector-effect="non-scaling-stroke" aria-hidden="true" />
             <rect :x="note.bounds.x - 5" :y="note.bounds.y - 5" :width="note.bounds.width + 10"
               :height="note.bounds.height + 10" rx="5" class="head-hit"
               :class="{ 'is-selected': store.selectedId === note.id, 'is-in-selection': store.selection.includes(note.id) }" />
@@ -293,6 +343,6 @@ defineExpose({ beginPlaceCurrent, cancelInteraction, nextPending, moveSelection 
           :width="Math.abs(marquee.x - marquee.startX)" :height="Math.abs(marquee.y - marquee.startY)" />
       </svg>
     </div>
-    <p v-if="store.annotations" class="paper-caption">框选后拖动符头或数字，可一起移动标注 · 方向键微调 · 保存后检查留白</p>
+    <p v-if="store.annotations" class="paper-caption">{{ $t('canvas.caption') }}</p>
   </div>
 </template>

@@ -5,6 +5,7 @@ import type { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
 
 const props = defineProps<{ zoom: number }>()
 const store = useWorkspaceStore()
+const { t } = useI18n()
 const host = ref<HTMLElement>()
 const renderError = ref('')
 const rendering = ref(false)
@@ -19,7 +20,7 @@ let display: OpenSheetMusicDisplay | undefined
 function render() {
   if (!display || !host.value?.clientWidth) return
   try { display.zoom = props.zoom / 100; display.render(); renderError.value = '' }
-  catch { renderError.value = '这页 MusicXML 暂时无法排版，请切回原谱查看。' }
+  catch { renderError.value = t('musicxml.layoutError') }
 }
 watch(query.data, async (blob, _previous, onCleanup) => {
   let active = true
@@ -36,7 +37,7 @@ watch(query.data, async (blob, _previous, onCleanup) => {
     if (!active) { instance.clear(); return }
     display = instance
     render()
-  } catch { if (active) renderError.value = '这页 MusicXML 暂时无法渲染，请切回原谱查看。' }
+  } catch { if (active) renderError.value = t('musicxml.renderError') }
   finally { if (active) rendering.value = false }
 }, { immediate: true, flush: 'post' })
 watch(() => props.zoom, render)
@@ -46,19 +47,19 @@ onBeforeUnmount(() => { display?.clear(); display = undefined; void cache.cancel
 
 <template>
   <div class="musicxml-preview">
-    <p class="musicxml-notice">MusicXML 重新排版预览 · 显示初次识谱结果，尚未包含校对修改和简谱标注，请对照原谱确认音符。小屏可横向滚动查看。</p>
-    <div v-if="query.isPending.value || rendering" class="preview-loading" role="status">正在排版 MusicXML…</div>
+    <p class="musicxml-notice">{{ $t('musicxml.notice') }}</p>
+    <div v-if="query.isPending.value || rendering" class="preview-loading" role="status">{{ $t('musicxml.loading') }}</div>
     <div v-if="renderError || query.isError.value" class="preview-error" role="alert">
-      {{ renderError || '暂时无法读取 MusicXML，请稍后重试。' }}
-      <UButton v-if="query.isError.value" label="重试预览" variant="ghost" color="neutral" @click="query.refetch()" />
+      {{ renderError || $t('musicxml.loadError') }}
+      <UButton v-if="query.isError.value" :label="$t('musicxml.retry')" variant="ghost" color="neutral" @click="query.refetch()" />
     </div>
-    <div class="musicxml-scroll"><div ref="host" class="musicxml-paper" aria-label="MusicXML 乐谱预览" :aria-busy="query.isPending.value || rendering" /></div>
+    <div class="musicxml-scroll"><div ref="host" class="musicxml-paper" :aria-label="$t('musicxml.aria')" :aria-busy="query.isPending.value || rendering" /></div>
   </div>
 </template>
 
 <style scoped>
-.musicxml-notice { padding: 14px 22px; margin: 0; background: #f2f4f8; color: #667085; font-size: 12px; line-height: 1.7; }
-.musicxml-scroll { max-height: calc(100dvh - 320px); min-height: 400px; overflow: auto; padding: 24px 18px 100px; background: #e8ebf0; }
+.musicxml-notice { padding: 14px 22px; margin: 0; background: var(--ui-bg-elevated); color: var(--ink-soft); font-size: 12px; line-height: 1.7; }
+.musicxml-scroll { max-height: calc(100dvh - 320px); min-height: 400px; overflow: auto; padding: 24px 18px 100px; background: var(--ui-bg-muted); }
 .musicxml-preview { min-width: 0; }
 .musicxml-paper { background: white; color: black; width: 100%; min-width: 640px; box-shadow: 0 6px 30px #172b4d0c; }
 .musicxml-paper :deep(svg) { display: block; max-width: none; }

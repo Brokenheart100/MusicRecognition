@@ -29,7 +29,7 @@ try {
     }
     Push-Location MusicRecognition.Web
     try {
-        foreach ($check in @('test:contract', 'test:layout', 'api:check', 'typecheck', 'lint')) {
+        foreach ($check in @('test:contract', 'test:unit', 'api:check', 'typecheck', 'lint')) {
             npm run $check
             if ($LASTEXITCODE) { throw "前端检查失败：$check" }
         }

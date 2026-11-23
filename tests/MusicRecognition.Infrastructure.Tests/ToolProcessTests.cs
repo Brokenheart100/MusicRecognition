@@ -2,7 +2,9 @@ using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
-using MusicRecognition.Infrastructure;
+using MusicRecognition.Infrastructure.Configuration;
+using MusicRecognition.Infrastructure.Recognition;
+using MusicRecognition.Infrastructure.Storage;
 using Xunit;
 
 public sealed class ToolProcessTests

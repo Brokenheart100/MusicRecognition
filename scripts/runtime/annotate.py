@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 import base64
-from collections import Counter
+from collections import Counter, defaultdict
 import hashlib
 import html
 import io
@@ -34,11 +34,6 @@ def page_operations(page) -> list[Any]:
 
 def save_json(path: Path, value):
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def overlaps(a, b):
-    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
-
 
 
 def label_geometry(note: dict[str, Any], font_path: Path, size: int, label: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -104,8 +99,8 @@ def layout_candidates(bounds, width, height, interline, staff=None):
 
 
 def chord_font_scale(count: int) -> float:
-    """Relative preferred size: 1 note=100%, 2≈85%, 3≈74%, 4≈65%."""
-    return 1 / (1 + .18 * (max(1, count)-1))
+    """Relative preferred size for the visible notes in a chord."""
+    return 1 / (1 + .08 * (max(1, count)-1))
 
 
 def layout(notes: list[dict[str, Any]], mask: Any, interline: float, font_path: Path,
@@ -114,14 +109,14 @@ def layout(notes: list[dict[str, Any]], mask: Any, interline: float, font_path: 
            staves: list[dict[str, Any]] | None = None, point_scale: float = 1/3) -> list[dict[str, Any] | None]:
     integral = np.pad(mask.astype(np.int64), ((1, 0), (1, 0))).cumsum(0).cumsum(1)
     height, width = mask.shape
-    placed = []
+    occupied = np.zeros_like(mask, dtype=bool)
+    placed: dict[int, list[int]] = {}
     result: list[dict[str, Any] | None] = [None] * len(notes)
     centers = np.array([[n["bounds"][0]+n["bounds"][2]/2,
                          n["bounds"][1]+n["bounds"][3]/2] for n in notes])
-    # Automatic size follows the staff, bounded to 4–8 pt initially and 3 pt
-    # during fitting. Fixed overrides never shrink. Units follow the PDF geometry.
-    minimum_size = math.ceil(3 / point_scale)
-    preferred_size = max(math.ceil(4 / point_scale), min(round(8 / point_scale), round(interline*1.2)))
+    # Use physical PDF points for both the preferred size and the crowded fallbacks.
+    reserve_sizes = tuple(dict.fromkeys(math.ceil(points / point_scale) for points in (4.5, 4, 3.5, 3)))
+    preferred_size = max(math.ceil(7 / point_scale), min(round(10 / point_scale), round(interline * 1.55)))
     sizes = label_sizes or {}
     requested_sizes = {i: sizes.get(n['interId'], font_size) for i, n in enumerate(notes)}
     def chord_key(index):
@@ -132,15 +127,18 @@ def layout(notes: list[dict[str, Any]], mask: Any, interline: float, font_path: 
     # Count the displayed chord, including fixed/manual members. Hidden labels
     # take no stack space. Determine sizes before reserving manual placements.
     chord_counts = Counter(chord_key(i) for i, n in enumerate(notes) if not placement_for(n).get('hidden', False))
-    preferred_sizes = {i: max(minimum_size, round(preferred_size*chord_font_scale(chord_counts[chord_key(i)]))) for i in range(len(notes))}
+    preferred_sizes = {i: max(reserve_sizes[0], round(preferred_size * chord_font_scale(chord_counts[chord_key(i)]))) for i in range(len(notes))}
     chosen_sizes = {i: requested_sizes[i] if requested_sizes[i] is not None else preferred_sizes[i] for i in range(len(notes))}
+    staff_members = defaultdict(list)
+    for i, note in enumerate(notes):
+        staff_members[note.get('system', 0), note.get('staff', 0)].append(i)
     geometries: dict[tuple[int, int], dict[str, Any]] = {}
-    def geometry_for(index: int) -> dict[str, Any]:
-        key = (index, chosen_sizes[index])
+    def geometry_for(index: int, size: int) -> dict[str, Any]:
+        key = (index, size)
         if key not in geometries:
             note = notes[index]
             label = labels[str(note["interId"])] if labels is not None else None
-            geometries[key] = label_geometry(note, font_path, chosen_sizes[index], label)
+            geometries[key] = label_geometry(note, font_path, size, label)
         return geometries[key]
     def staff_at(note, x):
         own = next((s for s in (staves or []) if s['id'] == note.get('staff') and s['system'] == note.get('system')), None)
@@ -152,68 +150,58 @@ def layout(notes: list[dict[str, Any]], mask: Any, interline: float, font_path: 
         neighbors = [lines(s) for s in staves if s is not own and s['left']-interline <= x <= s['right']+interline]
         previous = max((b for t, b in neighbors if b < top), default=None)
         following = min((t for t, b in neighbors if t > bottom), default=None)
+        # A label may use the whole inter-staff gap, but keep a small safety
+        # margin from the neighboring staff. The old midpoint boundary halved
+        # the usable height and forced large chords to half size even when the
+        # gap was empty.
+        margin = max(2, math.ceil(interline*.25))
         return {'top': top, 'bottom': bottom,
-                'min': (previous+top)/2 if previous is not None else 2,
-                'max': (bottom+following)/2 if following is not None else height-2}
-    def suits(rects, indexes, staff=None, manual=False):
+                'min': previous+margin if previous is not None else 2,
+                'max': following-margin if following is not None else height-2}
+    def suits(rects):
         for x, y, x2, y2 in rects:
             if min(x, y) < 2 or x2 >= width-2 or y2 >= height-2:
                 return False
             if integral[y2, x2]-integral[y, x2]-integral[y2, x]+integral[y, x]:
                 return False
-            if any(overlaps([x, y, x2, y2], other) for other in placed):
-                return False
-            if not manual and staff and (y < staff['min'] or y2 > staff['max']):
-                return False
-        if manual: return True
-        # Reading columns own their horizontal neighborhood. A different pitch or
-        # the other piano staff must not veto a label just because it is closer in Y.
-        owner = notes[indexes[0]]
-        others = [i for i, n in enumerate(notes) if i not in indexes
-                  and n.get('staff') == owner.get('staff') and n.get('system') == owner.get('system')]
-        if not len(others):
-            return True
-        own_x = float(np.mean(centers[list(indexes), 0]))
-        for x, y, x2, y2 in rects:
-            label_x = (x+x2)/2
-            if np.min(np.abs(centers[others, 0]-label_x)) + 1 < abs(own_x-label_x):
+            if occupied[y:y2, x:x2].any():
                 return False
         return True
-    def chords(members):
+    def reserve(rectangles, value=True):
+        for x, y, x2, y2 in rectangles.values():
+            occupied[y:y2, x:x2] = value
+    def place_group(members, font_sizes):
         # A chord is one layout unit: the stack shares a column and follows pitch order.
         ordered = sorted(members, key=lambda i: (centers[i][1], centers[i][0]))
         bounds = [min(notes[i]['bounds'][0] for i in ordered), min(notes[i]['bounds'][1] for i in ordered),
                   max(notes[i]['bounds'][0]+notes[i]['bounds'][2] for i in ordered),
                   max(notes[i]['bounds'][1]+notes[i]['bounds'][3] for i in ordered)]
-        staff = staff_at(notes[ordered[0]], (bounds[0]+bounds[2])/2)
-        scales = (1, .9, .8, .7, .6, 0) if any(requested_sizes[i] is None for i in ordered) else (1,)
-        # Direction takes priority; try smaller complete stacks below before
-        # moving above. Glyphs, accidentals and octave dots are remeasured together.
-        for wanted in ('below', 'above', 'right', 'left'):
-            seen = set()
-            for scale in scales:
-                for i in ordered:
-                    chosen_sizes[i] = requested_sizes[i] if requested_sizes[i] is not None else max(minimum_size, round(preferred_sizes[i]*scale))
-                signature = tuple(chosen_sizes[i] for i in ordered)
-                if signature in seen: continue
-                seen.add(signature)
-                boxes = [geometry_for(i) for i in ordered]
-                widths, heights = [b['width'] for b in boxes], [b['height'] for b in boxes]
-                gap = 2
-                total, maximum = sum(heights)+gap*(len(ordered)-1), max(widths)
-                for direction, x, y in layout_candidates(bounds, maximum, total, interline, staff):
-                    if direction != wanted: continue
-                    rects, cursor = [], y
-                    for width, measured in zip(widths, heights):
-                        left = round(x+(maximum-width)/2)
-                        rects.append([left, round(cursor), math.ceil(left+width), math.ceil(cursor+measured)])
-                        cursor += measured+gap
-                    if suits(rects, ordered, staff):
-                        return direction, dict(zip(ordered, rects))
-        # Pending/manual preview retains the preferred size, not an invisible
-        # failed trial. Saving a manual position will reserve it at that size.
-        for i in ordered:
-            chosen_sizes[i] = requested_sizes[i] if requested_sizes[i] is not None else preferred_sizes[i]
+        owner = notes[ordered[0]]
+        staff = staff_at(owner, (bounds[0]+bounds[2])/2)
+        # A column must stay closer to its own heads than to adjacent heads
+        # on the same staff. Measure the two boundaries once for all candidates.
+        own_x = float(np.mean(centers[ordered, 0]))
+        neighbors = [centers[i, 0] for i in staff_members[owner.get('system', 0), owner.get('staff', 0)] if i not in ordered]
+        left_head = max((x for x in neighbors if x < own_x-1), default=-math.inf)
+        right_head = min((x for x in neighbors if x > own_x+1), default=math.inf)
+        min_x, max_x = (left_head+own_x-1)/2, (right_head+own_x+1)/2
+        for size in font_sizes:
+            sizes = [requested_sizes[i] if requested_sizes[i] is not None else size for i in ordered]
+            boxes = [geometry_for(i, size) for i, size in zip(ordered, sizes)]
+            widths, heights = [b['width'] for b in boxes], [b['height'] for b in boxes]
+            gap = 2
+            total, maximum = sum(heights)+gap*(len(ordered)-1), max(widths)
+            for direction, x, y in layout_candidates(bounds, maximum, total, interline, staff):
+                if staff and (y < staff['min'] or math.ceil(y+total) > staff['max']):
+                    continue
+                rects, cursor = [], y
+                for width, measured in zip(widths, heights):
+                    left = round(x+(maximum-width)/2)
+                    rects.append([left, round(cursor), math.ceil(left+width), math.ceil(cursor+measured)])
+                    cursor += measured+gap
+                if all(min_x <= (x+x2)/2 <= max_x for x, _, x2, _ in rects) and suits(rects):
+                    chosen_sizes.update(zip(ordered, sizes))
+                    return direction, dict(zip(ordered, rects))
         return 'pending', {}
     def color_for(index: int) -> str:
         # Per-note overrides win; the revision-wide style is the fallback.
@@ -223,7 +211,7 @@ def layout(notes: list[dict[str, Any]], mask: Any, interline: float, font_path: 
     def entry(index: int, chosen: list[float] | None, direction='pending') -> dict[str, Any]:
         note = notes[index]
         label = labels[str(note["interId"])] if labels is not None else None
-        return {**note, **geometry_for(index),
+        return {**note, **geometry_for(index, chosen_sizes[index]),
                 **({"sourcePitch": {k:note[k] for k in ("step","alter","octave")}, "pitch":label["pitch"]} if label and "pitch" in label else {}),
                 "noteId": label["noteId"] if label else f"sheet1-inter{note['interId']}",
                 "color": color_for(index),
@@ -238,23 +226,53 @@ def layout(notes: list[dict[str, Any]], mask: Any, interline: float, font_path: 
         placement = placement_for(note)
         if placement.get('hidden', False): result[index] = entry(index, None, 'hidden')
         elif placement.get('x') is not None:
-            geometry = geometry_for(index)
             x, y = round(placement['x']), round(placement['y'])
-            rectangle = [x, y, math.ceil(x+geometry['width']), math.ceil(y+geometry['height'])]
-            chosen = rectangle if suits([rectangle], [index], manual=True) else None
+            preferred = chosen_sizes[index]
+            sizes = (preferred,) if requested_sizes[index] is not None else range(preferred, reserve_sizes[-1]-1, -1)
+            chosen = None
+            for size in sizes:
+                geometry = geometry_for(index, size)
+                rectangle = [x, y, math.ceil(x+geometry['width']), math.ceil(y+geometry['height'])]
+                if suits([rectangle]):
+                    chosen_sizes[index] = size
+                    placed[index] = chosen = rectangle
+                    reserve({index: rectangle})
+                    break
             result[index] = entry(index, chosen, 'manual')
-            if chosen: placed.append(chosen)
+        elif note.get('anchorStatus') == 'approximate':
+            result[index] = entry(index, None, 'anchor-review')
         else:
             key = chord_key(index)
             groups.setdefault(key, []).append(index)
     ordered_groups = sorted(groups.values(), key=lambda members: (notes[members[0]].get('system', 0),
                             notes[members[0]].get('staff', 0), min(centers[i][0] for i in members), min(centers[i][1] for i in members)))
+    directions = {}
+    # Reserve room for complete groups before growing any of them. In crowded
+    # passages a stack that cannot fit at 4.5 pt still gets a compact trial.
     for members in ordered_groups:
-        direction, rectangles = chords(members)
+        direction, rectangles = place_group(members, reserve_sizes if any(requested_sizes[i] is None for i in members) else (None,))
+        directions[members[0]] = direction
+        placed.update(rectangles)
+        reserve(rectangles)
+    # Grow larger chords first. Releasing only this group's reservation keeps a
+    # larger trial from taking space already committed to any other label.
+    for members in sorted(ordered_groups, key=lambda group: -len(group)):
+        auto = next((i for i in members if requested_sizes[i] is None), None)
+        if auto is None or auto not in placed:
+            continue
+        sizes = range(preferred_sizes[auto], chosen_sizes[auto], -1)
+        if not sizes:
+            continue
+        previous = {i: placed[i] for i in members}
+        reserve(previous, False)
+        direction, rectangles = place_group(members, sizes)
+        if rectangles:
+            directions[members[0]] = direction
+            placed.update(rectangles)
+        reserve(rectangles or previous)
+    for members in ordered_groups:
         for member in members:
-            chosen = rectangles.get(member)
-            result[member] = entry(member, chosen, direction)
-            if chosen: placed.append(chosen)
+            result[member] = entry(member, placed.get(member), directions[members[0]])
     return result
 
 
@@ -345,7 +363,9 @@ def svg_preview(image_path, font_path, annotations, width, height, color="#00000
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--image", type=Path, required=True)
-    parser.add_argument("--omr", type=Path, required=True)
+    masks = parser.add_mutually_exclusive_group(required=True)
+    masks.add_argument("--omr", type=Path)
+    masks.add_argument("--mask", type=Path)
     parser.add_argument("--mxl", type=Path, required=True)
     parser.add_argument("--notes", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -365,8 +385,11 @@ def main():
         raise ValueError(f"Unsupported OMR structures: {data['unsupported']}")
     if image.size != (data["width"], data["height"]) or data["sheet"] != 1:
         raise ValueError("This PoC only supports a single unscaled image and identical engine dimensions")
-    with zipfile.ZipFile(args.omr) as archive:
-        binary = Image.open(io.BytesIO(archive.read("sheet#1/BINARY.png"))).convert("L")
+    if args.mask:
+        binary = Image.open(args.mask).convert('L')
+    else:
+        with zipfile.ZipFile(args.omr) as archive:
+            binary = Image.open(io.BytesIO(archive.read("sheet#1/BINARY.png"))).convert("L")
     if binary.size != image.size:
         raise ValueError("Binary geometry does not match source")
     mask = np.asarray(binary) < 128
@@ -470,7 +493,7 @@ def main():
                "pdfSourceSha256":hashlib.sha256(args.pdf_source.read_bytes()).hexdigest() if geometry else None,
                "fontSizePixels": annotations[0]["fontSize"],
                "fontSizePoints": annotations[0]["fontSize"] * factor,
-               "fontSizingPolicy": "adaptive-chord-count-v2" if style['fontSizePoints'] is None else "fixed",
+               "fontSizingPolicy": "adaptive-readability-v3" if style['fontSizePoints'] is None else "fixed",
                "fontSizeRangePoints": [min(n['fontSize'] for n in annotations)*factor, max(n['fontSize'] for n in annotations)*factor],
                "coordinateTransform": geometry.as_dict() if geometry else {"pdfPointsPerSourcePixel": factor, "pdfHeightPoints": height, "pdfRotation": 0, "crop": None},
                "unsupported": data["unsupported"], "engineWarnings":data.get("warnings",[]), "fullPageRecognitionAccuracy": None,

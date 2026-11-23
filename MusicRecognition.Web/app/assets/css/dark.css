@@ -1,0 +1,527 @@
+/* Dark theme overrides. Light styles stay in main.css; every rule is scoped to html.dark. */
+html.dark {
+  color-scheme: dark;
+  --ink: #e6e9f2;
+  --ink-soft: #b4bccf;
+  --ink-faint: #8d95a9;
+  --focus-ring: #aab2ff;
+  --muted: #9aa3b8;
+  --accent: #99a1ff;
+  --accent-soft: #222842;
+  --line: #2a2f3c;
+  --glass: rgba(22, 25, 34, .78);
+  --ui-primary: #9aa2ff;
+  --ui-bg: #0f1117;
+  --ui-bg-muted: #171a23;
+  --ui-bg-elevated: #1b1f2b;
+  --ui-bg-accented: #252a39;
+  --ui-border: #2c3140;
+  --ui-border-muted: #242835;
+  --ui-border-accented: #3a4054;
+  --ui-text: #e7e9f2;
+  --ui-text-muted: #9aa1b4;
+  --ui-text-dimmed: #737b8f;
+  --ui-text-inverted: #0f1117;
+}
+
+html.dark body {
+  color: var(--ink);
+  background: #0f1117;
+}
+
+html.dark .workspace {
+  background: radial-gradient(ellipse at 92% 0%, #1b203a66, transparent 40%), #0f1117;
+}
+
+html.dark .glass {
+  border-color: rgba(255, 255, 255, .08);
+  box-shadow: 0 8px 32px #00000059, inset 0 1px 0 #ffffff0a;
+}
+
+/* Sidebar */
+html.dark .library-sidebar {
+  background: #12141cf5;
+  border-color: #232733;
+}
+
+html.dark .brand small {
+  color: #9299ad;
+}
+
+html.dark .sidebar-home {
+  color: #9aa2b6;
+}
+
+html.dark .sidebar-home.active {
+  color: #c7cbff;
+  background: #232842;
+}
+
+html.dark .library-heading {
+  color: #8f96aa;
+}
+
+html.dark .library-empty {
+  color: #6f778c;
+}
+
+html.dark .library-empty p {
+  color: #8f96aa;
+}
+
+html.dark .library-count {
+  background: #232838;
+  color: #a8b0c4;
+}
+
+html.dark .library-item:hover {
+  background: #1a1e29;
+}
+
+html.dark .library-item.active {
+  background: #20243a;
+}
+
+html.dark .file-mini {
+  background: #232838;
+  border-color: #303646;
+  color: #aab2d8;
+}
+
+html.dark .file-text small,
+html.dark .quiet-note small,
+html.dark .local-note,
+html.dark .help-link>span:last-child {
+  color: #9aa3b8;
+}
+
+html.dark .quiet-lines {
+  color: #4f5872;
+}
+
+html.dark .quiet-note p {
+  color: #9099ad;
+}
+
+html.dark .help-link {
+  color: #969eb2;
+}
+
+html.dark .status-dot {
+  background: #6f7ea8;
+}
+
+html.dark .avatar {
+  background: #232838;
+  border-color: #323848;
+  color: #b9bde0;
+}
+
+html.dark .sidebar-scrim {
+  background: #05070b99;
+}
+
+/* Top bar */
+html.dark .topbar {
+  background: #0f1117b8;
+  border-color: #232733;
+  backdrop-filter: blur(14px);
+}
+
+html.dark .topbar-left>button,
+html.dark .topbar-actions>button {
+  color: #8d95a9;
+}
+
+html.dark .breadcrumb {
+  color: #98a0b5;
+}
+
+html.dark .workspace-tag {
+  color: #8e96ab;
+}
+
+/* Welcome */
+html.dark .eyebrow {
+  color: #8f97ad;
+}
+
+html.dark .eyebrow>span {
+  background: #6f78b8;
+}
+
+html.dark .welcome-description,
+html.dark .welcome-edition {
+  color: #9aa2b6;
+}
+
+html.dark .welcome-edition i {
+  color: #6d7590;
+}
+
+html.dark .welcome-heading h1 em {
+  color: #aab1ff;
+}
+
+html.dark .import-card {
+  background: linear-gradient(145deg, #1a1e2aeb, #14172291);
+  border-color: #272c3a;
+}
+
+html.dark .import-card.is-dragging {
+  background: #1c2136;
+  outline-color: #7d86e6;
+}
+
+html.dark .card-eyebrow,
+html.dark .import-card>p {
+  color: #929ab0;
+}
+
+html.dark .upload-symbol {
+  background: linear-gradient(145deg, #1b2030, #171b28);
+  border-color: #2a3146;
+  color: #aab3ef;
+  box-shadow: 2px 9px 18px #00000026;
+}
+
+html.dark .upload-symbol>span:not(.iconify) {
+  background: #252b3d;
+  color: #b7bdf7;
+  box-shadow: 0 3px 10px #00000033;
+}
+
+html.dark .upload-formats {
+  color: #9aa3b8;
+}
+
+html.dark .upload-formats>i {
+  background: #4c5468;
+}
+
+html.dark .sample-divider {
+  color: #9aa3b8;
+}
+
+html.dark .sample-divider>span {
+  background: linear-gradient(90deg, transparent, #2a2f3d);
+}
+
+html.dark .sample-button {
+  background: #1a1e29cc;
+  border-color: #262b38;
+}
+
+html.dark .sample-button:hover {
+  background: #212637;
+}
+
+html.dark .sample-icon {
+  background: #1f2740;
+  color: #a6b0e8;
+}
+
+html.dark .sample-button strong {
+  color: #c3c8d9;
+}
+
+html.dark .sample-button small,
+html.dark .sample-button>.iconify {
+  color: #8991a6;
+}
+
+html.dark .scene-glow {
+  background: radial-gradient(ellipse, #2a305e66, transparent 70%);
+}
+
+html.dark .scene-orbit,
+html.dark .orbit-two {
+  border-color: #2b3142aa;
+}
+
+html.dark .floating-note {
+  color: #4a5270;
+}
+
+html.dark .floating-badge {
+  background: #1b1f2bed;
+  box-shadow: 0 12px 24px #0000004d;
+}
+
+html.dark .check-orb {
+  background: #1d2c29;
+  color: #8fb3aa;
+}
+
+html.dark .floating-badge strong {
+  color: #c0c6d6;
+}
+
+html.dark .floating-badge small,
+html.dark .scene-caption {
+  color: #8991a5;
+}
+
+html.dark .feature-strip,
+html.dark .welcome-footer {
+  border-color: #242834;
+}
+
+html.dark .feature-icon {
+  background: #1c2130;
+  color: #939ec0;
+}
+
+html.dark .feature-strip strong {
+  color: #b5bccd;
+}
+
+html.dark .feature-strip small {
+  color: #9aa3b8;
+}
+
+html.dark .feature-number {
+  color: #303646;
+}
+
+html.dark .welcome-footer {
+  color: #9aa3b8;
+}
+
+html.dark .sample-credit {
+  color: #8e99ba;
+}
+
+/* Score workspace */
+html.dark .document-status {
+  color: #929ab0;
+}
+
+html.dark .note-count {
+  color: #9ba3b8;
+  border-color: #2b3040;
+}
+
+html.dark .save-button {
+  box-shadow: 0 3px 7px #00000040;
+}
+
+html.dark .sheet-panel {
+  background: #171b26;
+  border-color: #2a2f3d;
+}
+
+html.dark .sheet-toolbar {
+  border-color: #2a2f3d;
+}
+
+html.dark .paper-icon {
+  color: #98a2bd;
+}
+
+html.dark .page-label {
+  color: #a2aabd;
+}
+
+html.dark .page-label small {
+  color: #b4bccf;
+}
+
+html.dark .version-tag {
+  color: #9aa3ba;
+  border-color: #303645;
+}
+
+html.dark .toolbar-divider {
+  background: #303645;
+}
+
+html.dark .score-stage {
+  background: #0c0e14;
+  scrollbar-color: #3a4052 transparent;
+}
+
+html.dark .score-paper {
+  box-shadow: 0 5px 24px #00000066;
+}
+
+html.dark .paper-caption,
+html.dark .preview-loading {
+  color: #8a93a8;
+}
+
+html.dark .paper-loading {
+  color: #b8c0d4;
+  background: #12151ee8;
+}
+
+html.dark .paper-progress {
+  background: #2a3142;
+}
+
+html.dark .view-dock {
+  box-shadow: 0 6px 20px #00000059;
+}
+
+html.dark .history-notice {
+  color: #a3abc4;
+  background: #1b2030;
+}
+
+html.dark .editor-layout>.inspector {
+  background: #171b26f2;
+  box-shadow: 0 10px 40px #00000059;
+}
+
+html.dark .inspector-title,
+html.dark .inspector-section {
+  border-color: #262b38;
+}
+
+html.dark .inspector-title {
+  color: #aab2c6;
+}
+
+html.dark .section-label {
+  color: #929bb0;
+}
+
+html.dark .section-label .section-label-en {
+  color: #aab2c6;
+}
+
+html.dark .field-help {
+  color: #9aa3b8;
+}
+
+html.dark .pitch-display>span:first-child {
+  color: #d9ddf0;
+}
+
+html.dark .pitch-display sub,
+html.dark .note-meta {
+  color: #8e97ad;
+}
+
+html.dark .accent-text {
+  color: #aeb2ed;
+}
+
+html.dark .review-summary>div {
+  color: #9aa6bd;
+}
+
+html.dark .review-summary>p {
+  color: #8d96ab;
+}
+
+html.dark .key-title {
+  color: #8d96ab;
+}
+
+html.dark .error-banner {
+  background: #2a1e1c;
+  border-color: #4a302b;
+  color: #e2b4a6;
+}
+
+html.dark .processing-symbol {
+  color: #9aa4cf;
+}
+
+html.dark .processing-card strong {
+  color: #c3c9da;
+}
+
+html.dark .processing-card p {
+  color: #8e97ac;
+}
+
+html.dark .placement-hint {
+  background: #23294a;
+  color: #c3c9f2;
+}
+
+html.dark .preview-error {
+  color: #d6a999;
+}
+
+html.dark .guide-modal {
+  background: #161a24;
+}
+
+html.dark .guide-body {
+  color: #9ca5b9;
+}
+
+html.dark .guide-body li::before {
+  color: #7c86b4;
+}
+
+html.dark .guide-body li strong,
+html.dark .shortcut-section h3 {
+  color: #c3c9da;
+}
+
+html.dark .shortcut-grid {
+  background: #1b2030;
+}
+
+html.dark kbd {
+  color: #aab2c8;
+}
+
+html.dark .guide-note {
+  color: #8d96ab;
+}
+
+html.dark .scan-enhancement em {
+  background: #272a4a;
+  color: #b9bcff;
+}
+
+html.dark .enhancement-status {
+  color: #8f99b0;
+}
+
+html.dark .page-navigation {
+  border-color: #2a2f3d;
+}
+
+html.dark .page-navigation-heading {
+  color: #98a2b8;
+}
+
+html.dark .page-navigation-heading strong {
+  color: #d3d8e7;
+}
+
+html.dark .page-navigation-item {
+  background: #171b26a6;
+  border-color: #2a2f3d;
+  color: #98a1b5;
+}
+
+html.dark .page-navigation-item:hover {
+  border-color: #4a4f86;
+}
+
+html.dark .page-navigation-item.active {
+  background: #23234a;
+  border-color: #6e6dc0;
+  color: #c9c7ff;
+}
+
+html.dark .page-navigation-item.failed {
+  border-color: #5a3430;
+}
+
+html.dark .page-export-hint,
+html.dark .page-export-error {
+  color: #8d96ab;
+}
+
+/* Scoped preview surfaces keep the paper white; only its frame goes dark. */
+html.dark .musicxml-paper {
+  box-shadow: 0 6px 30px #00000066;
+}

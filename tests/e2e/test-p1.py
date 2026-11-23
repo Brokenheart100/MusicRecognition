@@ -40,7 +40,9 @@ def wait_job():
         if job["state"] in ("Ready","Failed","Cancelled"): return job
         time.sleep(1)
     raise AssertionError("Recognition deadline exceeded")
-def revision(version=None): return call("GET",f'/api/scores/{state["id"]}/revisions'+(f"?version={version}" if version else ""))
+def revision(version=None):
+    if version is None: version=call("GET","/api/scores/"+state["id"])["currentRevision"]
+    return call("GET",f'/api/scores/{state["id"]}/revisions/{version}')
 def wait_export(version):
     for _ in range(180):
         r=revision(version)
@@ -48,7 +50,8 @@ def wait_export(version):
         time.sleep(1)
     raise AssertionError("Export deadline exceeded")
 def artifact(version,name):
-    data=call("GET",f'/api/scores/{state["id"]}/artifacts/{name}?version={version}')
+    path={'annotated.pdf':f'revisions/{version}/annotated-pdf','annotations.json':f'revisions/{version}/annotations','metrics.json':f'revisions/{version}/metrics','source':'source','score.mxl':'musicxml'}[name]
+    data=call("GET",f'/api/scores/{state["id"]}/{path}')
     folder=args.evidence.parent/args.evidence.stem/f'r{version}';folder.mkdir(parents=True,exist_ok=True)
     (folder/name).write_bytes(data if isinstance(data,bytes) else json.dumps(data,indent=2).encode())
     return data
@@ -66,16 +69,16 @@ if args.command=="active-cancel":
         assert job["state"]=="Queued",job
         time.sleep(.2)
     else:raise AssertionError("Job never entered processing")
-    cancelled=call("POST",f'/api/scores/{state["id"]}/cancel',b"")
+    cancelled=call("POST",f'/api/scores/{state["id"]}/cancellations',b"")
     assert cancelled["state"]=="Cancelling",cancelled
     result=wait_job();assert result["state"]=="Cancelled" and result["currentRevision"]==0,result
     state["result"]=result;state["checks"]["running-recognition-cancelled-before-publish"]=True;save();print("Running recognition cancelled without publishing a revision");raise SystemExit()
 if args.command=="retry":
-    job=call("POST",f'/api/scores/{state["id"]}/retry',b"")
+    job=call("POST",f'/api/scores/{state["id"]}/retries',b"")
     assert job["state"]=="Queued" and not job["cancelRequested"],job
     state["checks"]["explicit-retry-accepted"]=True;save();print("Retry queued");raise SystemExit()
 if args.command=="cancel":
-    job=call("POST",f'/api/scores/{state["id"]}/cancel',b"")
+    job=call("POST",f'/api/scores/{state["id"]}/cancellations',b"")
     assert job["state"]=="Cancelled";state["checks"]["cancelled"]=True;save();print("Cancelled");raise SystemExit()
 if args.command=="check-queued":
     job=call("GET","/api/scores/"+state["id"])
@@ -93,7 +96,7 @@ if args.command=="negative":
     upload(b"incorrect pdf signature","score.pdf",secrets.token_hex(16),400)
     upload(b"%PDF-different bytes","score.pdf",state["key"],409)
     call("GET","/api/scores/"+state["id"],headers={"X-Score-Token":""},expected=401)
-    call("GET",f'/api/scores/{state["id"]}/artifacts/arbitrary.txt',expected=404)
+    call("GET",f'/api/scores/{state["id"]}/revisions/999/annotations',expected=404)
     current=revision()
     invalid={"expectedRevision":current["version"],"corrections":[],"numbering":{"mode":"MovableDo","keys":[]}}
     call("POST",f'/api/scores/{state["id"]}/revisions',invalid,expected=400)

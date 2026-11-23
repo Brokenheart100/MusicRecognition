@@ -1,4 +1,4 @@
-using MusicRecognition.Domain;
+using MusicRecognition.Domain.ValueObjects;
 using Xunit;
 
 public class AnnotationStyleTests

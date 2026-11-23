@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
-using MusicRecognition.Infrastructure;
+using MusicRecognition.Infrastructure.Configuration;
+using MusicRecognition.Infrastructure.Recognition;
 using Xunit;
 
 public sealed class RuntimeDependencyTests

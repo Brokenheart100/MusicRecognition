@@ -10,7 +10,7 @@ import sys
 import tempfile
 
 
-def validate_runtime(root: Path, pdftoppm: str, font: Path, require_opencv=False, require_composition=False):
+def validate_runtime(root: Path, pdftoppm: str, font: Path, require_opencv=False):
     sys.path.insert(0, str(root / "scripts" / "runtime"))
     from pdf_geometry import prepare_pdf, resolve_pdftoppm
 
@@ -45,13 +45,6 @@ def validate_runtime(root: Path, pdftoppm: str, font: Path, require_opencv=False
         opencv_version = None
     if require_opencv and opencv_version is None:
         raise RuntimeError("OpenCV is required by this deployment; install requirements-opencv.txt.")
-    if require_composition:
-        importlib.import_module('music21')
-        from fragments import muse_score
-        engraving = subprocess.run([str(muse_score(root)), '--version'], capture_output=True, timeout=30,
-                       env={**os.environ,'QT_QPA_PLATFORM':'windows' if os.name=='nt' else 'offscreen'})
-        if engraving.returncode:
-            raise RuntimeError('MuseScore 启动失败：'+engraving.stderr.decode('utf-8',errors='replace')[-2000:])
     with tempfile.TemporaryDirectory(prefix="musicrecognition-preflight-") as temporary:
         folder = Path(temporary)
         source = folder / "smoke.pdf"
@@ -73,10 +66,9 @@ if __name__ == "__main__":
     parser.add_argument("--pdftoppm", required=True)
     parser.add_argument("--font", type=Path, required=True)
     parser.add_argument("--require-opencv", action="store_true")
-    parser.add_argument("--require-composition", action="store_true")
     args = parser.parse_args()
     try:
-        print(json.dumps(validate_runtime(args.root, args.pdftoppm, args.font, args.require_opencv, args.require_composition), ensure_ascii=False))
+        print(json.dumps(validate_runtime(args.root, args.pdftoppm, args.font, args.require_opencv), ensure_ascii=False))
     except Exception as error:
         print(f"Recognition dependency check failed: {error}", file=sys.stderr)
         sys.exit(1)

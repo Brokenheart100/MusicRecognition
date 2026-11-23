@@ -33,9 +33,13 @@ async (page) => {
   await page.locator(`.note-target[data-note-id="${hiddenId}"]`).click()
   assert(await page.getByRole('button', { name: '显示标注', exact: true }).count() === 1, 'Hidden annotation was not restored after refresh')
 
+  const setZoom = async (value) => {
+    await page.getByRole('combobox', { name: '缩放比例', exact: true }).click()
+    await page.getByRole('option', { name: `${value}%`, exact: true }).click()
+  }
   const geometry = []
   for (const zoom of [100, 150, 200]) {
-    await page.getByRole('combobox', { name: '缩放比例', exact: true }).selectOption(String(zoom))
+    await setZoom(zoom)
     await page.waitForFunction(() => {
       const canvas = document.querySelector('.pdf-canvas')
       const paper = document.querySelector('.score-paper')
@@ -49,7 +53,7 @@ async (page) => {
       const item = JSON.parse(localStorage.getItem('pujian:scores:v1')).find(r => r.id === currentId)
       const headers = { 'X-Score-Token': item.token }
       const job = await (await fetch(`/api/scores/${item.id}`, { headers })).json()
-      const data = await (await fetch(`/api/scores/${item.id}/artifacts/annotations.json?version=${job.currentRevision}`, { headers })).json()
+      const data = await (await fetch(`/api/scores/${item.id}/revisions/${job.currentRevision}/annotations`, { headers })).json()
       const canvas = document.querySelector('.pdf-canvas'), rect = canvas.getBoundingClientRect()
       const t = JSON.parse(canvas.dataset.pdfTransform), ctm = document.querySelector('.annotation-overlay > g').getScreenCTM()
       const [left, , , top] = data.pdfGeometry.cropBox
@@ -61,16 +65,17 @@ async (page) => {
         const actual = new DOMPoint(x, y).matrixTransform(ctm)
         error = Math.max(error, Math.abs(actual.x - expected.x), Math.abs(actual.y - expected.y))
       }
-      return { zoom: Number(document.querySelector('[aria-label="缩放比例"]').value), anchors: data.annotations.length, maxCssPixelError: error }
+      return { zoom: Number(document.querySelector('[role="combobox"][aria-label="缩放比例"]')?.textContent?.replace('%', '')), anchors: data.annotations.length, maxCssPixelError: error }
     }))
   }
   assert(geometry.every(g => g.maxCssPixelError < .1), 'SVG anchors drifted from PDF.js viewport')
-  await page.getByRole('combobox', { name: '缩放比例', exact: true }).selectOption('100')
+  await setZoom(100)
   const results = await page.evaluate(async ({ correctedId, hiddenId }) => {
     const id = localStorage.getItem('pujian:active'), item = JSON.parse(localStorage.getItem('pujian:scores:v1')).find(r => r.id === id)
     const headers = { 'X-Score-Token': item.token }
-    const revision = await (await fetch(`/api/scores/${id}/revisions`, { headers })).json()
-    const annotations = await (await fetch(`/api/scores/${id}/artifacts/annotations.json?version=${revision.version}`, { headers })).json()
+    const job = await (await fetch(`/api/scores/${id}`, { headers })).json()
+    const revision = await (await fetch(`/api/scores/${id}/revisions/${job.currentRevision}`, { headers })).json()
+    const annotations = await (await fetch(`/api/scores/${id}/revisions/${revision.version}/annotations`, { headers })).json()
     return { scoreId: id, version: revision.version, correctedPitch: revision.score.notes.find(n => n.id === correctedId).pitch,
       placement: revision.score.notes.find(n => n.id === correctedId).placement,
       hidden: revision.score.notes.find(n => n.id === hiddenId).placement.hidden,

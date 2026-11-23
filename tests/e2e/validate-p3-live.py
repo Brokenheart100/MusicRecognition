@@ -70,11 +70,11 @@ while export['state'] not in ('Ready','Failed') and time.monotonic() < deadline:
 if export['state'] != 'Ready':
     raise RuntimeError(f'Document export did not complete: {export}')
 (folder/'job.json').write_text(json.dumps(call(access['id']), indent=2), encoding='utf-8')
-pdf = call(f"{access['id']}/artifacts/annotated.pdf?version={export['version']}")
+pdf = call(f"{access['id']}/revisions/{export['version']}/annotated-pdf")
 destination = root/args.pdf
 destination.parent.mkdir(exist_ok=True)
 destination.write_bytes(pdf)
-metrics = call(f"{access['id']}/artifacts/metrics.json?version={export['version']}")
+metrics = call(f"{access['id']}/revisions/{export['version']}/metrics")
 (folder/'metrics.json').write_text(json.dumps(metrics, indent=2), encoding='utf-8')
 (folder/'export.json').write_text(json.dumps({**export,'id':access['id'],'pdfSha256':hashlib.sha256(pdf).hexdigest(),'pdfBytes':len(pdf)},indent=2))
 print(json.dumps({'document':access['id'],'exportVersion':export['version'],'state':export['state'],'pages':metrics['pageCount'],'bytes':len(pdf)}),flush=True)

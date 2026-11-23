@@ -45,7 +45,7 @@
 - Windows 本地按 CI 命令构建完整 Release 解决方案，0 warnings / 0 errors；领域 40 / 40、基础设施及进程夹具 21 / 21 通过。
 - Linux 使用从 Git 提取的干净源码及独立 .NET 10.0.402 / Ubuntu 24.04 容器，完整 Release 构建、同样的 40 + 21 项测试、API / Worker publish 均通过；此本地容器的进程夹具使用系统 Python 3.12，GitHub 托管 runner 将通过 setup-python 使用 3.14。
 - 独立 Windows Python 3.14 虚拟环境及 Linux Python 3.14 容器均从固定清单重新恢复依赖，`pip check` 和各自 63 项 Python 测试通过。现用识谱环境中的 pip 文件不完整，本次未修改它，CI 使用全新环境。
-- 本地前端 SDK 漂移、契约、布局、类型检查、ESLint 和 Node 生产构建均通过。构建仍有既有大 chunk / Verovio 浏览器模块外置警告；本次没有更改前端业务代码或消除这些警告。
-- Linux Node 24.21.0 容器从干净源码执行项目指定 npm 11.19.0 和首次 `npm ci`；修复 Git 换行属性后，SDK 18 个生成文件逐字节校验、18 个 API 操作契约、布局规则、类型检查、ESLint 和生产构建全部通过。`npm ci` 仍提示现有 7 high / 1 low 漏洞，没有添加忽略规则或自动升级依赖来消除提示。
+- 本地前端 SDK 漂移、契约、类型检查、ESLint 和 Node 生产构建均通过。构建仍有既有大 chunk 警告；本次没有更改前端业务代码或消除这些警告。
+- Linux Node 24.21.0 容器从干净源码执行项目指定 npm 11.19.0 和首次 `npm ci`；修复 Git 换行属性后，SDK 生成文件逐字节校验、10 个 API 操作契约、类型检查、ESLint 和生产构建全部通过。`npm ci` 仍提示现有 7 high / 1 low 漏洞，没有添加忽略规则或自动升级依赖来消除提示。
 
 本地结果和 TRX 位于忽略目录 `output/validation/github-actions/`。这些结果验证检查命令和跨平台构建，不能替代 GitHub 托管 runner 的执行结果。仓库已启用 Actions，远端结果以 [CI 运行记录](https://github.com/Brokenheart100/MusicRecognition/actions/workflows/ci.yml) 中对应提交的检查为准。

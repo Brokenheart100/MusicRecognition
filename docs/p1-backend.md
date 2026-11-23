@@ -53,16 +53,20 @@ C# 生成 `NumberedLabel(Degree, Alteration, OctaveDots)`。Python 正式适配�
 
 | 方法 / 路由 | 请求与结果 |
 | --- | --- |
-| POST `/api/scores/` | multipart 字段 `file`；另带 `Idempotency-Key` 8..100 字符；202 + JobView，重复相同字节返回同一 ID，不同字节返回 409 |
+| POST `/api/scores` | multipart 字段 `file`；另带 `Idempotency-Key` 8..100 字符；202 + Location 指向新任务，重复相同字节返回同一 ID，不同字节返回 409 |
 | GET `/api/scores/{id}` | JobView，含状态、Attempts、CurrentRevision、错误码与时间 |
-| GET `/api/scores/{id}/revisions?version=1` | 指定修订；省略 version 取当前版本，尚无结果返回 409 |
-| POST `/api/scores/{id}/revisions` | ExpectedRevision、Corrections、Numbering；202 + 新修订，乐谱未 Ready / 版本冲突为 409 |
-| POST `/api/scores/{id}/cancel` | 取消 Queued / Processing 识别；已终止任务返回 409；不撤销已保存修订 |
-| POST `/api/scores/{id}/retry` | 重试 Failed / Cancelled 识别，返回 Queued，原错误清空 |
-| GET `/api/scores/{id}/artifacts/source` | 下载原上传文件 |
-| GET `/api/scores/{id}/artifacts/annotated.pdf?version=2` | 下载指定 Ready 修订，未完成为 409 |
-| GET `/api/scores/{id}/artifacts/annotations.json?version=2` | 布局 / 坐标 / 待放置标记，含业务 NoteId |
-| GET `/api/scores/{id}/artifacts/metrics.json?version=2` | 几何 / 导出检查结果，不是全页语义准确率 |
+| GET `/api/scores/{id}/revisions/{version}` | 指定修订；修订不存在返回 404 |
+| POST `/api/scores/{id}/revisions` | ExpectedRevision、Corrections、Numbering；202 + Location 指向新修订，乐谱未 Ready / 版本冲突为 409 |
+| GET `/api/scores/{id}/revisions/{version}/layout` | 单页修订的布局 / 坐标 / 待放置标记，含业务 NoteId；多页父任务返回 400 select-page |
+| GET `/api/scores/{id}/revisions/{version}/annotated-pdf` | 下载指定 Ready 修订，未完成为 409；支持 Range |
+| GET `/api/scores/{id}/revisions/{version}/annotations` | 下载原始布局 JSON |
+| GET `/api/scores/{id}/revisions/{version}/metrics` | 下载几何 / 导出检查结果，不是全页语义准确率 |
+| POST `/api/scores/{id}/exports` | 为多页文档创建整份导出；202 + Location 指向导出快照 |
+| GET `/api/scores/{id}/exports/{version}` | 读取整份导出状态；不存在返回 404 |
+| POST `/api/scores/{id}/cancellations` | 取消 Queued / Processing 识别；202 + Location 指向父任务；已终止任务返回 409 |
+| POST `/api/scores/{id}/retries` | 重试 Failed / Cancelled 识别；传单页 id 时也可重新识别 Ready 页并生成新修订；202 + Location 指向父任务，原错误清空 |
+| GET `/api/scores/{id}/source` | 下载原上传文件，支持 Range |
+| GET `/api/scores/{id}/musicxml` | 下载单页原始 MusicXML；多页父任务返回 409 |
 | GET `/health`、`/alive` | API 检查数据库；Worker 另检查识谱运行时就绪状态；`/alive` 仅检查进程存活 |
 | GET `/openapi/v1.json` | Development 环境的 OpenAPI；不公开 Hangfire Dashboard |
 

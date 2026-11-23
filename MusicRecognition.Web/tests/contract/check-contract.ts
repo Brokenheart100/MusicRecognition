@@ -1,21 +1,38 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { zAnnotationStyle, zJobView, zPitch, zAnnotationsView, zRevisionRequest, zGetScoreResponse, zFragmentPlan, zFragmentView } from '../../shared/api/generated/zod.gen'
+import { zAnnotationStyle, zJobView, zPitch, zAnnotationsView, zRevisionRequest, zGetScoreResponse, zRecognitionEngineKind } from '../../shared/api/generated/zod.gen'
 import { getScore } from '../../shared/api/generated/sdk.gen'
 import { createClient } from '../../shared/api/generated/client'
 const spec = JSON.parse(await readFile(new URL('../../openapi/score-api.json', import.meta.url), 'utf8'))
-const operations = Object.values(spec.paths).flatMap((path: unknown) => Object.values(path as Record<string, { operationId: string; responses: Record<string, unknown>; parameters: { in: string; name: string }[] }>))
-assert.equal(operations.length, 18)
-assert.equal(new Set(operations.map(op => op.operationId)).size, 18)
-assert.ok(operations.some(op => op.operationId === 'GetScoreReflow'))
+const operations = Object.values(spec.paths).flatMap((path: unknown) => Object.values(path as Record<string, { operationId: string; responses: Record<string, { headers?: Record<string, unknown> }>; parameters: { in: string; name: string }[] }>))
+assert.equal(operations.length, 14)
+assert.equal(new Set(operations.map(op => op.operationId)).size, 14)
 for (const op of operations) {
   assert.ok(op.parameters.some(p => p.in === 'header' && p.name === 'X-Score-Token'))
   assert.ok(op.responses['400'] && op.responses['401'] && op.responses['404'] && op.responses['409'] && op.responses['500'])
-  assert.ok(op.responses[op.operationId.startsWith('Create') || op.operationId.startsWith('Import') ? '202' : '200'])
+  const expectedStatus = op.operationId.startsWith('Create') || op.operationId.startsWith('Import') ? '202' : '200'
+  assert.ok(op.responses[expectedStatus])
+  if (expectedStatus === '202') assert.ok(op.responses['202'].headers?.Location)
+}
+assert.ok(spec.paths['/api/scores/{id}/revisions/{version}'])
+assert.ok(spec.paths['/api/scores/{id}/revisions/{version}/layout'])
+assert.ok(spec.paths['/api/scores/{id}/revisions/{version}/annotated-pdf'])
+assert.ok(spec.paths['/api/scores/{id}/revisions/{version}/annotations'])
+assert.ok(spec.paths['/api/scores/{id}/revisions/{version}/metrics'])
+assert.ok(spec.paths['/api/scores/{id}/cancellations'])
+assert.ok(spec.paths['/api/scores/{id}/retries'])
+assert.ok(spec.paths['/api/scores/{id}/source'])
+assert.ok(spec.paths['/api/scores/{id}/musicxml'])
+for (const removed of ['/api/scores/{id}/revisions', '/api/scores/{id}/layout', '/api/scores/{id}/cancel', '/api/scores/{id}/retry', '/api/scores/{id}/artifacts/{name}']) {
+  if (removed === '/api/scores/{id}/revisions') assert.equal(spec.paths[removed].get, undefined)
+  else assert.equal(spec.paths[removed], undefined)
 }
 assert.equal(zPitch.safeParse({ step: 'C', alter: 3, octave: 4 }).success, false)
 assert.equal(zPitch.safeParse({ step: 'C', alter: 0, octave: '4' }).success, false)
 assert.equal(zJobView.safeParse({ state: 'invented' }).success, false)
+assert.equal(zRecognitionEngineKind.parse(undefined), 'Audiveris')
+assert.equal(zRecognitionEngineKind.parse('Homr'), 'Homr')
+assert.equal(zRecognitionEngineKind.safeParse('invented').success, false)
 assert.equal(zAnnotationsView.safeParse({ annotations: [] }).success, false)
 assert.equal(zRevisionRequest.safeParse({ expectedRevision: 0 }).success, false)
 assert.equal(zAnnotationStyle.safeParse({ fontSizePoints: 17, color: '#000000' }).success, false)
@@ -25,7 +42,4 @@ assert.equal(zAnnotationStyle.safeParse({ fontSizePoints: null, color: '#000000'
 const client = createClient({ baseUrl: 'http://contract.test', fetch: async () => Response.json({ state: 'corrupt-response' }) })
 await assert.rejects(() => getScore({ client, path: { id: '00000000-0000-4000-8000-000000000001' }, headers: { 'X-Score-Token': 'contract-test' }, throwOnError: true }), error => error instanceof Error && error.name === 'ZodError')
 assert.equal(zGetScoreResponse.safeParse({ state: 'corrupt-response' }).success, false)
-assert.equal(zFragmentPlan.safeParse({title:'x',reviewConfirmed:false,fragments:[]}).success,false)
-assert.equal(zFragmentPlan.safeParse({title:'x',reviewConfirmed:false,fragments:[{sourceIndex:0,crop:null,startMeasure:1,endMeasure:null}]}).success,true)
-assert.equal(zFragmentView.safeParse({state:'invented'}).success,false)
-console.log('18 operations including composition, capability headers, 202/ProblemDetails, numeric constraints, malformed responses and SDK runtime validation passed')
+console.log('14 resource operations, 202 Location, capability headers, ProblemDetails, numeric constraints, malformed responses and SDK runtime validation passed')

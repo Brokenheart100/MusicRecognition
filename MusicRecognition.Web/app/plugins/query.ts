@@ -7,7 +7,7 @@ export default defineNuxtPlugin((app) => {
     queries: { staleTime: 1000, gcTime: 5 * 60_000, retry: (count, error) => {
       const status = (error as { status?: number }).status
       return !status || status >= 500 ? count < 2 : false
-    }, refetchOnWindowFocus: true },
+    }, refetchOnWindowFocus: false },
     mutations: { retry: false, gcTime: 0 },
   } })
   app.vueApp.use(VueQueryPlugin, { queryClient })

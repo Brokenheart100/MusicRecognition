@@ -1,4 +1,4 @@
-param([string]$Python = '', [switch]$WithOpenCV, [switch]$WithComposition, [string]$PopplerDirectory = '', [string]$Font = 'C:/Windows/Fonts/seguisym.ttf')
+param([string]$Python = '', [switch]$WithOpenCV, [string]$PopplerDirectory = '', [string]$Font = 'C:/Windows/Fonts/seguisym.ttf')
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path "$PSScriptRoot/../..").Path
 if (!$Python) { $Python = Join-Path $root $(if ($IsWindows) { '.tools/poc-python/Scripts/python.exe' } else { '.tools/poc-python/bin/python' }) }
@@ -10,14 +10,6 @@ if ($LASTEXITCODE) { throw 'Install scripts/setup/requirements.txt in the select
 if ($WithOpenCV) {
     & $Python -c 'import cv2; print("Optional OpenCV ready:", cv2.__version__)'
     if ($LASTEXITCODE) { throw 'Install scripts/setup/requirements-opencv.txt to enable Adaptive preprocessing.' }
-}
-if ($WithComposition) {
-    & $Python -c 'import music21; print("Composition music21:", music21.__version__)'
-    if ($LASTEXITCODE) { throw 'Install scripts/setup/requirements-composition.txt to enable screenshot composition.' }
-    $compositionRuntime = Join-Path $root '.tools/musescore/runtime.json'
-    if (!(Test-Path -LiteralPath $compositionRuntime)) { throw 'Run scripts/setup/provision-musescore.ps1 before enabling composition.' }
-    $compositionExecutable = (Get-Content -LiteralPath $compositionRuntime -Raw | ConvertFrom-Json).executable
-    if (!(Test-Path -LiteralPath $compositionExecutable)) { throw 'The configured composition PDF engine is missing.' }
 }
 $projectPoppler = Join-Path $root '.tools/poppler'
 $projectRenderer = Join-Path $projectPoppler 'bin/pdftoppm.exe'

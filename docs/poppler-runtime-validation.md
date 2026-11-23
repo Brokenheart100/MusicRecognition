@@ -32,7 +32,7 @@ Java 适配器现在镜像固定版本引擎的导出遍历，记录每个符头
 
 SHA-256：`e1543c0df0fa5b2d3a0015a20e00fb2ba158ab117126453fa42f80136f986baf`。
 
-通过真实运行的 API 重新上传相同字节，得到文档 `5e69122d-5004-403d-bd3a-aad5439344b8`。第 1 页首次即成功；第 2 页修复重复导出验证后通过正式 `/retry` 接口重试成功，保留此前失败尝试。两页修订均为 v1，整份导出 v1 固定快照 `[1, 1]`，下载状态 Ready。
+通过真实运行的 API 重新上传相同字节，得到文档 `5e69122d-5004-403d-bd3a-aad5439344b8`。第 1 页首次即成功；第 2 页修复重复导出验证后通过正式重试接口重试成功，保留此前失败尝试。两页修订均为 v1，整份导出 v1 固定快照 `[1, 1]`，下载状态 Ready。
 
 | 页 | 子任务 | 已识别符头 / 标注 | XML 匹配的唯一符头 | XML 重复导出 | 节奏声部待确认 | 已放置 | 待放置 |
 |---|---|---:|---:|---:|---:|---:|---:|
@@ -80,24 +80,23 @@ $env:MUSICRECOGNITION_PDFTOPPM = (Resolve-Path .tools/poppler/bin/pdftoppm.exe).
 
 现场 Aspire 显示 API、数据库和 Web 健康，Worker 为 Finished。日志末尾为启动检查报错 `Poppler pdftoppm is missing`，表明进程在 Hangfire 开始消费任务前退出；Finished 不是识谱完成状态。
 
-文件检查确认 `.tools/poppler/bin/pdftoppm.exe`、Audiveris 自带 `runtime/bin/java.exe`、JDK 的 `bin/javac.exe` 和 MuseScore `bin` 下的可执行文件缺失，而相邻资源目录、Python 和缓存发布包仍在。现有证据无法确定文件缺失来源，未据此认定是某个清理脚本或安全软件所致。
+文件检查确认 `.tools/poppler/bin/pdftoppm.exe`、Audiveris 自带 `runtime/bin/java.exe` 和 JDK 的 `bin/javac.exe` 缺失，而相邻资源目录、Python 和缓存发布包仍在。现有证据无法确定文件缺失来源，未据此认定是某个清理脚本或安全软件所致。
 
 恢复与准备脚本修正：
 
 - 新增 `scripts/setup/provision-poppler.ps1`：从 [Windows 发布包维护者的固定 26.07.0-0 发布](https://github.com/oschwartz10612/poppler-windows/releases/tag/v26.07.0-0) 准备完整 bin / DLL / etc / share，校验 SHA256 `a711b0563b06edc488583d28198b6734c5a494afbbd1b9d87d3d2866062fb7e2`。支持修复部分缺失的项目副本。
 - `prepare.ps1` 找不到项目 Poppler 和 PATH 工具时调用该准备入口。下载仅发生于显式准备操作，不加入 Worker 启动或处理上传的流程。
 - `provision-tools.ps1` 同时检查 Audiveris 启动器、自带 Java 和 JAR，修复“启动器仍在但 Java bin 丢失”时跳过恢复的问题。
-- 用已有且校验通过的固定发布包恢复 Audiveris / JDK / MuseScore，重新编译 Java 适配器，并执行完整依赖检查。
+- 用已有且校验通过的固定发布包恢复 Audiveris / JDK，重新编译 Java 适配器，并执行完整依赖检查。
 
-验证：Poppler 26.07.0、Audiveris 自带 Java 25.0.3、OpenCV 4.13.0、music21 10.5.1 与 MuseScore 可启动；测试 PDF 实际栅格化得到 144×144 像素。通过资源命令重新启动 Worker，4.7 秒后健康检查通过，API / Worker / Web 均为 Running / Healthy。没有重新提交或删除用户任务。本次只复验依赖恢复和启动，不将其作为所有乐谱重新完成识别的证据。
+验证：Poppler 26.07.0、Audiveris 自带 Java 25.0.3 与 OpenCV 4.13.0 可启动；测试 PDF 实际栅格化得到 144×144 像素。通过资源命令重新启动 Worker，4.7 秒后健康检查通过，API / Worker / Web 均为 Running / Healthy。没有重新提交或删除用户任务。本次只复验依赖恢复和启动，不将其作为所有乐谱重新完成识别的证据。
 
 本机复跑入口：
 
 ```powershell
 pwsh -File scripts/setup/provision-tools.ps1
 pwsh -File scripts/setup/provision-poppler.ps1
-pwsh -File scripts/setup/provision-musescore.ps1
-pwsh -File scripts/setup/prepare.ps1 -WithOpenCV -WithComposition
+pwsh -File scripts/setup/prepare.ps1 -WithOpenCV
 aspire resource worker start --apphost MusicRecognition.AppHost/MusicRecognition.AppHost.csproj --non-interactive
 aspire wait worker --apphost MusicRecognition.AppHost/MusicRecognition.AppHost.csproj --non-interactive
 ```

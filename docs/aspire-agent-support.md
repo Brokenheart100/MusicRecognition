@@ -1,6 +1,14 @@
 # Aspire AI 代理支持与运行检查
 
-初次检查日期：2026-10-22。下文记录初始化时的历史状态；当时仅诊断，未修改运行环境。随后已按用户要求修复 Python 环境并恢复识谱，当前结果见 [修复与 OpenCV 验证](opencv-validation.md)。下列故障记录保留作为修复前证据。
+初次检查于 2026-10-22，初始化与当时的故障见后续历史记录。Python 环境修复和真实样本复验见 [修复与 OpenCV 验证](opencv-validation.md)。
+
+## 2026-11-18 Windows 套接字与完整流程复验
+
+此前的启动日志在 `SocketPermissionHelper` 写入辅助通道目录 ACL 时出现 `UnauthorizedAccessException`，主通道绑定返回 `10013`。本机验证先确认普通目录的本地套接字可用，再将当前用户拥有的空 `%USERPROFILE%\.aspire\cli\backchannels` 恢复为 Aspire 使用的私有权限。ACL 禁用继承，由当前用户独占可继承的 `FullControl`。操作前通过 `aspire ps` 确认没有活动 AppHost，原 ACL 留存在忽略的 `output/validation/aspire-socket/backchannels-acl-before.txt`。 [Aspire 套接字权限实现](https://github.com/microsoft/aspire/blob/af07e33f8d1ef733645138b3f8e36067d073148d/src/Shared/SocketPermissionHelper.cs)
+
+恢复后用 `aspire start --apphost MusicRecognition.AppHost/MusicRecognition.AppHost.csproj --launch-profile https --non-interactive` 启动正式 AppHost。PostgreSQL、API、Worker 和 Nuxt 的健康检查均通过，Web 入口为 `http://localhost:3000`。`aspire describe` 和 `aspire logs worker` 能读取状态和任务日志，启动记录中两类套接字错误均为 0。
+
+在 Edge 工作台打开同一份 [小步舞曲样本](../MusicRecognition.Web/public/samples/minuet.pdf)。Audiveris 识别出 201 个音符。对照原谱核对首小节上谱表的 `D5 G4 A4 B4 C5`，将首个 `D5` 的简谱标注向上移动到已有留白并保存修订 2。浏览器下载为 201 个黑色标注、0 个待放置，文件摘要与服务端修订产物相同。独立 Poppler 校验中，标注区域外变化、原谱深色墨迹覆盖和标注重叠均为 0。 [修订 2 PDF](../output/playwright/aspire-minuet-reviewed.pdf)
 
 ## 初始化结果
 

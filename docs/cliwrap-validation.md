@@ -6,14 +6,14 @@
 
 根目录 `Directory.Packages.props` 固定 CliWrap 3.10.5，只有 Infrastructure 添加无版本的 PackageReference。`ToolEngine` 和 `RecognitionRuntime` 用 CliWrap 配置可执行文件、参数数组、工作目录、环境变量以及 UTF-8 标准输出 / 标准错误管道。保留既有业务接口、调度与错误码；不改识谱和标注规则。
 
-CliWrap 简化进程调用，不安装 Poppler、Python、Java 或 MuseScore，也不替代 Recognition 路径配置和启动依赖检查。
+CliWrap 简化进程调用，不安装 Poppler、Python 或 Java，也不替代 Recognition 路径配置和启动依赖检查。
 
 ## 行为约束
 
 - 长任务继续流式读取输出，不使用全量内存缓冲。日志最多保存 10,000 行、每行最多 4,000 字符；达到上限后继续排空管道，独立保留最后 8 行标准错误用于失败诊断。
 - 启动检查的两个输出缓冲区各最多保留 16,000 字符，每行最多 4,000 字符，避免原先无上限的 ReadToEnd。
 - 非零退出码由本项目显式检查，并继续读取受保护的 `error.json`，记录中文文件名 / 页码、错误原因和日志路径；客户端只收到现有安全错误消息。为此使用 `CommandResultValidation.None`，不把第三方命令参数异常直接返回客户端。
-- 保留每 20 秒进度、耗时、运行结果和 Python 根进程内存采样；内存指标不代表整个 Java / MuseScore 进程树。
+- 保留每 20 秒进度、耗时、运行结果和 Python 根进程内存采样；内存指标不代表整个 Java 进程树。
 - 长任务超时维持 Recognition:TimeoutSeconds，启动检查维持 60 秒；Windows 清理允许额外最多 10 秒，随后由 CliWrap 强制终止兜底。
 
 ## Windows 进程树兼容

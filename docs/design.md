@@ -13,9 +13,8 @@
 | 模式                 | 行为                                | 约束                               |
 | -------------------- | ----------------------------------- | ---------------------------------- |
 | 原谱叠加（主要目标） | 保留原页面，只叠加辅助数字          | 需要音符语义与原页面坐标可靠关联   |
-| 重新排版（可选）     | MusicXML 经渲染器生成新谱，再加数字 | 可以增大间距，但不保证原分页和版式 |
 
-禁止把重新排版的结果作为原谱叠加通过的证据。禁止把 MusicXML 的排版位置直接当作原 PDF 像素位置。
+禁止把 MusicXML 的排版位置直接当作原 PDF 像素位置。
 
 ## 2. 技术栈与复用原则
 
@@ -30,15 +29,12 @@
 | OMR          | Audiveris（隔离适配器）         | 复用印刷乐谱识别与批处理，不训练自有模型                 |
 | 交换格式     | MusicXML / MXL                  | 音符语义交换；同时保留原文件和 .omr                      |
 | 原谱预览     | PDF.js + SVG 标注层             | 图片输入也使用明确的页面坐标系                           |
-| 重新排版     | 优先验证 Verovio                | MusicXML 转 MEI / SVG；音符 ID 映射需要适配验证          |
 | PDF 加注     | 前端评估 pdf-lib                | PoC 允许使用 Python PDF 工具独立验证几何链路             |
 | 元数据       | PostgreSQL + EF Core            | 任务、版本、修订、标注，不把大文件塞入业务表             |
 | 文件         | 存储接口；本地目录起步          | 后续替换对象存储                                         |
 | 持久后台任务 | 评估 Hangfire + PostgreSQL 扩展 | PostgreSQL provider 属于社区扩展；落实版本兼容与恢复验证 |
 
 不因为 AppHost 已引用 Redis 就把它列为必须运行的依赖；按实际缓存需求引入。先做单业务系统与独立 Worker，不提前拆分身份、乐谱、转换等微服务。
-
-2026-10-23 P4 补充：已接入 Verovio 6.3.0 并独立验证 MusicXML → MEI → SVG ID。十页真实覆盖矩阵仅简单谱通过下载准入，复杂页保留诊断视图并禁止不完整导出；尚不能替代原谱工作流。OSMD 保留为识谱预览。重排当前以已保存修订生成新 SVG 和 HTML 辅助谱，真值与剩余范围见 [P4 报告](p4-reflow.md)。
 
 PoC 是可替换的验证工具，不代表正式产品改用 Python；正式 C# 领域模型不依赖 PoC 工具。
 
@@ -156,7 +152,6 @@ A/B 需要相同样本、独立音高真值、漏检 / 误检、原图锚点偏�
 - Audiveris Book structure：https://github.com/Audiveris/audiveris/wiki/Book-Structure
 - MusicXML pitch：https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/pitch/
 - MusicXML accidental：https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/accidental/
-- Verovio：https://book.verovio.org/advanced-topics/internal-structure.html
 - PDF.js：https://mozilla.github.io/pdf.js/
 - pdf-lib：https://pdf-lib.js.org/
 - Hangfire 社区扩展：https://www.hangfire.io/extensions.html

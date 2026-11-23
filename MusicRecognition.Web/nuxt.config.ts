@@ -1,9 +1,27 @@
 export default defineNuxtConfig({
   compatibilityDate: '2026-10-22',
-  modules: ['@nuxt/ui', '@pinia/nuxt', '@vueuse/nuxt', '@nuxt/eslint'],
-  css: ['~/assets/css/main.css'],
+  modules: ['@nuxt/ui', '@pinia/nuxt', '@vueuse/nuxt', '@nuxt/eslint', '@nuxtjs/color-mode', '@nuxtjs/i18n'],
+  css: ['~/assets/css/main.css', '~/assets/css/dark.css'],
   ui: { fonts: false },
-  colorMode: { preference: 'light', fallback: 'light' },
+  colorMode: {
+    preference: 'system',
+    fallback: 'light',
+    storageKey: 'pujian-color-mode',
+  },
+  i18n: {
+    strategy: 'no_prefix',
+    defaultLocale: 'zh-CN',
+    locales: [
+      { code: 'zh-CN', language: 'zh-CN', name: '中文', file: 'zh-CN.json' },
+      { code: 'en', language: 'en-US', name: 'English', file: 'en.json' },
+    ],
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'pujian-locale',
+      redirectOn: 'root',
+      fallbackLocale: 'zh-CN',
+    },
+  },
   devtools: { enabled: false },
   runtimeConfig: { apiBase: '' },
   app: {

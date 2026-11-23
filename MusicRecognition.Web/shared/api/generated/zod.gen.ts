@@ -66,76 +66,6 @@ export const zDocumentExportView = z.object({
     errorCode: z.string().nullable()
 });
 
-export const zFragmentCrop = z.object({
-    x: z.number().gte(0).lte(1),
-    y: z.number().gte(0).lte(1),
-    width: z.number().gte(0).lte(1),
-    height: z.number().gte(0).lte(1)
-});
-
-export const zFragmentImage = z.object({
-    index: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    fileName: z.string()
-});
-
-export const zFragmentSelection = z.object({
-    sourceIndex: z.int().gte(0).lte(11),
-    crop: zFragmentCrop.nullable(),
-    startMeasure: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).default(1),
-    endMeasure: z.int().gte(1).lte(5000).nullable()
-});
-
-export const zFragmentPlan = z.object({
-    title: z.string().min(1).max(120),
-    fragments: z.array(zFragmentSelection).min(1).max(12),
-    reviewConfirmed: z.boolean().default(false)
-});
-
-export const zFragmentRevisionRequest = z.object({
-    expectedRevision: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    plan: zFragmentPlan
-});
-
-export const zFragmentSummary = z.object({
-    index: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    fileName: z.string(),
-    measureCount: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    startMeasure: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    endMeasure: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    keptMeasureCount: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
-});
-
-export const zFragmentResult = z.object({
-    measureCount: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    noteCount: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    pdfPages: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    warnings: z.array(z.string()),
-    fragments: z.array(zFragmentSummary),
-    music21Version: z.string(),
-    recognitionKey: z.string(),
-    selectedEventsPreserved: z.boolean(),
-    reviewConfirmed: z.boolean()
-});
-
-export const zFragmentView = z.object({
-    id: z.uuid(),
-    state: z.enum([
-        'Queued',
-        'Processing',
-        'Cancelling',
-        'Cancelled',
-        'Ready',
-        'Failed'
-    ]),
-    version: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    stage: z.string(),
-    errorCode: z.string().nullable(),
-    errorMessage: z.string().nullable(),
-    sources: z.array(zFragmentImage),
-    plan: zFragmentPlan,
-    result: zFragmentResult.nullable()
-});
-
 export const zGlyphView = z.object({
     path: z.string(),
     advance: z.number()
@@ -207,6 +137,16 @@ export const zPlacementChange = z.object({
 
 export const zPreprocessingMode = z.enum(['None', 'Adaptive']).default('None');
 
+export const zProblemDetails = z.object({
+    type: z.string().nullish(),
+    title: z.string().nullish(),
+    status: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullish(),
+    detail: z.string().nullish(),
+    instance: z.string().nullish()
+});
+
+export const zRecognitionEngineKind = z.enum(['Audiveris', 'Homr']).default('Audiveris');
+
 export const zJobView = z.object({
     id: z.uuid(),
     fileName: z.string(),
@@ -228,15 +168,8 @@ export const zJobView = z.object({
     updatedAt: z.iso.datetime({ offset: true }),
     preprocessing: zPreprocessingMode,
     pageCount: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).default(1),
-    pages: z.array(zPageJobView).nullable()
-});
-
-export const zProblemDetails = z.object({
-    type: z.string().nullish(),
-    title: z.string().nullish(),
-    status: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullish(),
-    detail: z.string().nullish(),
-    instance: z.string().nullish()
+    pages: z.array(zPageJobView).nullable(),
+    engine: zRecognitionEngineKind
 });
 
 export const zRect = z.object({
@@ -244,28 +177,6 @@ export const zRect = z.object({
     y: z.number(),
     width: z.number(),
     height: z.number()
-});
-
-export const zReflowNote = z.object({
-    xmlId: z.string(),
-    noteId: z.uuid(),
-    degree: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    alteration: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    octaveDots: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    fontSizePoints: z.number().nullable(),
-    color: z.string(),
-    hidden: z.boolean()
-});
-
-export const zReflowView = z.object({
-    formatVersion: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    musicXml: z.string(),
-    notes: z.array(zReflowNote),
-    sourceHeadCount: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    mappedHeadCount: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    omittedHeadCount: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    warnings: z.array(z.string()),
-    validationPolicy: z.string()
 });
 
 export const zScaleKind = z.enum(['Major', 'NaturalMinor']);
@@ -363,6 +274,14 @@ export const zImportScoreBody = z.object({
         'none',
         'adaptive'
     ]).optional()
+})).and(z.object({
+    engine: z.enum([
+        '',
+        'Audiveris',
+        'Homr',
+        'audiveris',
+        'homr'
+    ]).optional()
 }));
 
 export const zImportScoreHeaders = z.object({
@@ -388,23 +307,6 @@ export const zGetScorePath = z.object({
  */
 export const zGetScoreResponse = zJobView;
 
-export const zGetRevisionHeaders = z.object({
-    'X-Score-Token': z.string().min(32).max(200)
-});
-
-export const zGetRevisionPath = z.object({
-    id: z.uuid()
-});
-
-export const zGetRevisionQuery = z.object({
-    version: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional()
-});
-
-/**
- * OK
- */
-export const zGetRevisionResponse = zRevisionView;
-
 export const zCreateRevisionBody = zRevisionRequest;
 
 export const zCreateRevisionHeaders = z.object({
@@ -419,6 +321,76 @@ export const zCreateRevisionPath = z.object({
  * Accepted
  */
 export const zCreateRevisionResponse = zRevisionView;
+
+export const zGetRevisionHeaders = z.object({
+    'X-Score-Token': z.string().min(32).max(200)
+});
+
+export const zGetRevisionPath = z.object({
+    id: z.uuid(),
+    version: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+});
+
+/**
+ * OK
+ */
+export const zGetRevisionResponse = zRevisionView;
+
+export const zGetRevisionLayoutHeaders = z.object({
+    'X-Score-Token': z.string().min(32).max(200)
+});
+
+export const zGetRevisionLayoutPath = z.object({
+    id: z.uuid(),
+    version: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+});
+
+/**
+ * OK
+ */
+export const zGetRevisionLayoutResponse = zAnnotationsView;
+
+export const zGetAnnotatedPdfHeaders = z.object({
+    'X-Score-Token': z.string().min(32).max(200)
+});
+
+export const zGetAnnotatedPdfPath = z.object({
+    id: z.uuid(),
+    version: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+});
+
+/**
+ * Artifact bytes; Content-Type reflects PDF, image or JSON.
+ */
+export const zGetAnnotatedPdfResponse = z.string();
+
+export const zGetRevisionAnnotationsHeaders = z.object({
+    'X-Score-Token': z.string().min(32).max(200)
+});
+
+export const zGetRevisionAnnotationsPath = z.object({
+    id: z.uuid(),
+    version: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+});
+
+/**
+ * Artifact bytes; Content-Type reflects PDF, image or JSON.
+ */
+export const zGetRevisionAnnotationsResponse = z.string();
+
+export const zGetRevisionMetricsHeaders = z.object({
+    'X-Score-Token': z.string().min(32).max(200)
+});
+
+export const zGetRevisionMetricsPath = z.object({
+    id: z.uuid(),
+    version: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+});
+
+/**
+ * Artifact bytes; Content-Type reflects PDF, image or JSON.
+ */
+export const zGetRevisionMetricsResponse = z.string();
 
 export const zCreateDocumentExportHeaders = z.object({
     'X-Score-Token': z.string().min(32).max(200)
@@ -439,7 +411,7 @@ export const zGetDocumentExportHeaders = z.object({
 
 export const zGetDocumentExportPath = z.object({
     id: z.uuid(),
-    version: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
+    version: z.int().gte(1).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
 });
 
 /**
@@ -447,186 +419,54 @@ export const zGetDocumentExportPath = z.object({
  */
 export const zGetDocumentExportResponse = zDocumentExportView;
 
-export const zCancelScoreHeaders = z.object({
+export const zCreateCancellationHeaders = z.object({
     'X-Score-Token': z.string().min(32).max(200)
 });
 
-export const zCancelScorePath = z.object({
+export const zCreateCancellationPath = z.object({
     id: z.uuid()
 });
 
 /**
- * OK
+ * Accepted. The operation is queued.
  */
-export const zCancelScoreResponse = zJobView;
+export const zCreateCancellationResponse = zJobView;
 
-export const zRetryScoreHeaders = z.object({
+export const zCreateRetryHeaders = z.object({
     'X-Score-Token': z.string().min(32).max(200)
 });
 
-export const zRetryScorePath = z.object({
+export const zCreateRetryPath = z.object({
     id: z.uuid()
 });
 
 /**
- * OK
+ * Accepted. The operation is queued.
  */
-export const zRetryScoreResponse = zJobView;
+export const zCreateRetryResponse = zJobView;
 
-export const zGetScoreArtifactHeaders = z.object({
+export const zGetScoreSourceHeaders = z.object({
     'X-Score-Token': z.string().min(32).max(200)
 });
 
-export const zGetScoreArtifactPath = z.object({
-    id: z.uuid(),
-    name: z.string()
-});
-
-export const zGetScoreArtifactQuery = z.object({
-    version: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional()
+export const zGetScoreSourcePath = z.object({
+    id: z.uuid()
 });
 
 /**
  * Artifact bytes; Content-Type reflects PDF, image or JSON.
  */
-export const zGetScoreArtifactResponse = z.string();
+export const zGetScoreSourceResponse = z.string();
 
-export const zGetScoreLayoutHeaders = z.object({
+export const zGetScoreMusicXmlHeaders = z.object({
     'X-Score-Token': z.string().min(32).max(200)
 });
 
-export const zGetScoreLayoutPath = z.object({
+export const zGetScoreMusicXmlPath = z.object({
     id: z.uuid()
-});
-
-export const zGetScoreLayoutQuery = z.object({
-    version: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional()
-});
-
-/**
- * OK
- */
-export const zGetScoreLayoutResponse = zAnnotationsView;
-
-export const zGetScoreReflowHeaders = z.object({
-    'X-Score-Token': z.string().min(32).max(200)
-});
-
-export const zGetScoreReflowPath = z.object({
-    id: z.uuid()
-});
-
-export const zGetScoreReflowQuery = z.object({
-    version: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional()
-});
-
-/**
- * OK
- */
-export const zGetScoreReflowResponse = zReflowView;
-
-export const zImportFragmentsBody = z.object({
-    files: zIFormFileCollection
-}).and(z.object({
-    plan: z.string()
-}));
-
-export const zImportFragmentsHeaders = z.object({
-    'X-Score-Token': z.string().min(32).max(200),
-    'Idempotency-Key': z.string().min(8).max(100)
-});
-
-/**
- * Accepted
- */
-export const zImportFragmentsResponse = zFragmentView;
-
-export const zGetFragmentProjectHeaders = z.object({
-    'X-Score-Token': z.string().min(32).max(200)
-});
-
-export const zGetFragmentProjectPath = z.object({
-    id: z.uuid()
-});
-
-export const zGetFragmentProjectQuery = z.object({
-    version: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional()
-});
-
-/**
- * OK
- */
-export const zGetFragmentProjectResponse = zFragmentView;
-
-export const zCreateFragmentRevisionBody = zFragmentRevisionRequest;
-
-export const zCreateFragmentRevisionHeaders = z.object({
-    'X-Score-Token': z.string().min(32).max(200)
-});
-
-export const zCreateFragmentRevisionPath = z.object({
-    id: z.uuid()
-});
-
-/**
- * Accepted
- */
-export const zCreateFragmentRevisionResponse = zFragmentView;
-
-export const zGetFragmentArtifactHeaders = z.object({
-    'X-Score-Token': z.string().min(32).max(200)
-});
-
-export const zGetFragmentArtifactPath = z.object({
-    id: z.uuid(),
-    name: z.string()
-});
-
-export const zGetFragmentArtifactQuery = z.object({
-    version: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
 });
 
 /**
  * Artifact bytes; Content-Type reflects PDF, image or JSON.
  */
-export const zGetFragmentArtifactResponse = z.string();
-
-export const zGetFragmentImageHeaders = z.object({
-    'X-Score-Token': z.string().min(32).max(200)
-});
-
-export const zGetFragmentImagePath = z.object({
-    id: z.uuid(),
-    index: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' })
-});
-
-/**
- * Artifact bytes; Content-Type reflects PDF, image or JSON.
- */
-export const zGetFragmentImageResponse = z.string();
-
-export const zRetryFragmentProjectHeaders = z.object({
-    'X-Score-Token': z.string().min(32).max(200)
-});
-
-export const zRetryFragmentProjectPath = z.object({
-    id: z.uuid()
-});
-
-/**
- * OK
- */
-export const zRetryFragmentProjectResponse = zFragmentView;
-
-export const zCancelFragmentProjectHeaders = z.object({
-    'X-Score-Token': z.string().min(32).max(200)
-});
-
-export const zCancelFragmentProjectPath = z.object({
-    id: z.uuid()
-});
-
-/**
- * OK
- */
-export const zCancelFragmentProjectResponse = zFragmentView;
+export const zGetScoreMusicXmlResponse = z.string();

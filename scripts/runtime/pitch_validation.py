@@ -26,6 +26,9 @@ def musicxml_pitches(path):
 
 
 def validate_pitches(data, mxl, bindings=None, xml_root=None):
+    if data.get('engineKind') == 'homr':
+        from homr_adapter import validate_snapshot
+        return validate_snapshot(data, xml_root if xml_root is not None else musicxml_root(mxl), bindings)
     notes = data["notes"]
     if data.get("octaveShifts") and "octaveRepair" not in data:
         raise ValueError("Octave candidates require source-line recovery in the runtime pipeline")

@@ -14,6 +14,10 @@ def note(identifier=1, x=60, y=60, chord=0, staff=1):
             'staff': staff, 'system': 1, 'step': 'C', 'alter': 0, 'octave': 4}
 
 
+def measured_label(note, font, size, label):
+    return {'width': size, 'height': size, 'fontSize': size, 'dots': [[size/2, 1, size*.05]]}
+
+
 class BelowFirstLayoutTests(unittest.TestCase):
     def run_layout(self, notes=None, mask=None, labels=None, staves=None):
         # Fixed glyph boxes isolate placement decisions from platform font metrics.
@@ -94,12 +98,9 @@ class AdaptiveLayoutTests(unittest.TestCase):
         notes = [note(1, y=50, chord=7), note(2, y=60, chord=7), note(3, y=70, chord=7)]
         mask = np.ones((220, 220), dtype=bool)
         if not blocked: mask[84:124, 45:85] = False
-        # Actual-size measurements, unlike the fixed placement regression above.
-        def measured(note, font, size, label):
-            return {'width': size, 'height': size, 'fontSize': size, 'dots': [[size/2, 1, size*.05]]}
         if labels:
             labels = {str(n['interId']): {'noteId': str(n['interId']), **labels.get(str(n['interId']), {})} for n in notes}
-        with patch('annotate.label_geometry', side_effect=measured):
+        with patch('annotate.label_geometry', side_effect=measured_label):
             return layout(notes, mask, 15, Path('unused-font'), labels=labels,
                           font_size=font_size, label_sizes=overrides)
 
@@ -124,31 +125,77 @@ class AdaptiveLayoutTests(unittest.TestCase):
 
     def test_fully_blocked_group_stays_pending_with_preferred_size(self):
         result = self.fit(blocked=True)
-        self.assertTrue(all(n['status'] == 'needs-manual-placement' and n['fontSize'] == 13 for n in result))
+        self.assertTrue(all(n['status'] == 'needs-manual-placement' and n['fontSize'] == 20 for n in result))
 
     def test_manually_positioned_auto_note_keeps_preferred_size(self):
         result = self.fit(labels={'1': {'placement': {'x': 50, 'y': 85}}})
         self.assertEqual('manual', result[0]['placementDirection'])
-        self.assertEqual(13, result[0]['fontSize'])
+        self.assertEqual(20, result[0]['fontSize'])
+
+    def test_manual_position_fits_at_a_smaller_size_in_place(self):
+        mask = np.ones((220, 220), dtype=bool)
+        mask[85:99, 50:75] = False
+        labels = {'1': {'noteId': '1', 'placement': {'x': 50, 'y': 85}}}
+        with patch('annotate.label_geometry', side_effect=measured_label):
+            entry = layout([note()], mask, 15, Path('unused'), labels=labels)[0]
+        self.assertEqual('manual', entry['placementDirection'])
+        self.assertEqual([50, 85, 64, 99], entry['labelBounds'])
+        self.assertEqual(14, entry['fontSize'])
+
+    def test_chord_grows_above_when_below_only_fits_the_reservation(self):
+        notes = [note(1, y=120, chord=7), note(2, y=130, chord=7)]
+        mask = np.ones((220, 220), dtype=bool)
+        mask[40:114, 45:85] = False
+        mask[143:175, 45:85] = False
+        with patch('annotate.label_geometry', side_effect=measured_label):
+            entries = layout(notes, mask, 15, Path('unused'))
+        self.assertEqual(['above', 'above'], [n['placementDirection'] for n in entries])
+        self.assertEqual([21, 21], [n['fontSize'] for n in entries])
+
+    def test_wide_inter_staff_gap_lets_four_note_chord_keep_preferred_size(self):
+        # Dense side ink blocks the fallback directions. The old midpoint
+        # boundary (140) would reject this 19 px stack, which ends at 165;
+        # the widened band (196) keeps it below the staff at full size.
+        notes = [note(i + 1, x=60, y=40 + i * 8, chord=7) for i in range(4)]
+        staves = [{'id': 1, 'system': 1, 'left': 10, 'right': 210, 'top': [40, 40], 'bottom': [80, 80]},
+                  {'id': 2, 'system': 1, 'left': 10, 'right': 210, 'top': [200, 200], 'bottom': [240, 240]}]
+        mask = np.ones((300, 220), dtype=bool)
+        mask[:, 45:75] = False
+        with patch('annotate.label_geometry', side_effect=measured_label):
+            entries = layout(notes, mask, 15, Path('unused'), staves=staves)
+        self.assertTrue(all(entry['status'] == 'placed' for entry in entries))
+        self.assertEqual(['below'] * 4, [entry['placementDirection'] for entry in entries])
+        self.assertEqual(19, entries[0]['fontSize'])
+        self.assertGreater(max(entry['labelBounds'][3] for entry in entries), 140)
+
+    def test_growth_respects_space_reserved_for_a_neighboring_chord(self):
+        notes = [note(), note(2, x=66, y=62, chord=7), note(3, x=66, y=72, chord=7)]
+        mask = np.ones((220, 220), dtype=bool)
+        mask[76:121, 50:100] = False
+        with patch('annotate.label_geometry', side_effect=measured_label):
+            entries = layout(notes, mask, 15, Path('unused'))
+        self.assertEqual(['placed']*3, [n['status'] for n in entries])
+        self.assertGreaterEqual(entries[1]['fontSize'], 14)
+        self.assertEqual(entries[1]['fontSize'], entries[2]['fontSize'])
 
     def test_roomy_chords_get_smaller_by_count_before_collision_fitting(self):
         observed = []
         for count in range(1, 9):
             notes = [note(i+1, x=180, y=50+i*12, chord=7) for i in range(count)]
-            with patch('annotate.label_geometry', side_effect=lambda n, f, size, label: {'width': size, 'height': size, 'fontSize': size}):
+            with patch('annotate.label_geometry', side_effect=measured_label):
                 entries = layout(notes, np.zeros((600, 600), dtype=bool), 20, Path('unused'))
             self.assertTrue(all(e['status'] == 'placed' for e in entries))
             self.assertEqual(1, len({e['fontSize'] for e in entries}))
             observed.append(entries[0]['fontSize'])
-        self.assertTrue(all(a > b for a, b in zip(observed[:5], observed[1:6])))
-        self.assertTrue(all(a >= b >= 9 for a, b in zip(observed, observed[1:])))
+        self.assertEqual(30, observed[0])
+        self.assertTrue(all(a > b >= 14 for a, b in zip(observed, observed[1:])))
 
     def test_hidden_member_does_not_reduce_visible_single_font(self):
         notes = [note(1, chord=7), note(2, chord=7)]
         labels = {'1': {'noteId': '1'}, '2': {'noteId': '2', 'placement': {'hidden': True}}}
-        with patch('annotate.label_geometry', side_effect=lambda n, f, size, label: {'width': size, 'height': size, 'fontSize': size}):
+        with patch('annotate.label_geometry', side_effect=measured_label):
             entries = layout(notes, np.zeros((220, 220), dtype=bool), 15, Path('unused'), labels=labels)
-        self.assertEqual(18, entries[0]['fontSize'])
+        self.assertEqual(23, entries[0]['fontSize'])
         self.assertEqual('hidden', entries[1]['status'])
 
 

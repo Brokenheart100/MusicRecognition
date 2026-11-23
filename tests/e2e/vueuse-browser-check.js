@@ -2,6 +2,13 @@
 // Start the Nuxt dev server, open it with playwright-cli, then run this file.
 async (page) => {
   const assert = (value, message) => { if (!value) throw new Error(message) }
+  const acceptPageSwitch = async () => {
+    const dialog = page.getByRole('dialog')
+    await dialog.waitFor()
+    assert(await dialog.getByText('切换页面？', { exact: true }).count() === 1, 'Page switch dialog lost its title')
+    await dialog.getByRole('button', { name: '继续', exact: true }).click()
+    await dialog.waitFor({ state: 'hidden' })
+  }
   const parent = '00000000-0000-4000-8000-000000000001'
   const ids = ['00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000003']
   const noteIds = ['00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000005']
@@ -39,10 +46,10 @@ async (page) => {
     const url = new URL(route.request().url()), segments = url.pathname.split('/').filter(Boolean)
     const id = segments[2], index = ids.indexOf(id)
     if (segments.length === 3) return route.fulfill({ json: job(id, index < 0 ? null : index) })
-    if (segments[4] === 'source') return route.fulfill({ contentType: 'application/pdf', body: pdf })
-    if (segments[4] === 'annotated.pdf') return route.fulfill({ contentType: 'application/pdf', body: pdf })
+    if (segments[3] === 'source') return route.fulfill({ contentType: 'application/pdf', body: pdf })
+    if (segments[3] === 'musicxml') return route.fulfill({ contentType: 'application/vnd.recordare.musicxml', body: '<score-partwise/>' })
     if (index < 0) return route.fulfill({ status: 404, json: { title: 'not-found' } })
-    const version = Number(url.searchParams.get('version') || revisions[index].length)
+    const version = Number(segments[4] || url.searchParams.get('version') || revisions[index].length)
     if (segments[3] === 'revisions') {
       if (route.request().method() === 'POST') {
         const edit = route.request().postDataJSON(), next = structuredClone(revisions[index].at(-1))
@@ -53,34 +60,33 @@ async (page) => {
         }
         next.score.numbering = edit.numbering
         revisions[index].push(next)
-        return route.fulfill({ json: next })
+        return route.fulfill({ status: 202, headers: { Location: `/api/scores/${id}/revisions/${next.version}` }, json: next })
       }
+      if (segments[5] === 'annotated-pdf') return route.fulfill({ contentType: 'application/pdf', body: pdf })
+      if (segments[5] === 'metrics') return route.fulfill({ json: { fontSizingPolicy: 'adaptive-readability-v3', placed: 1, manualPlacementRequired: 0 } })
+      if (segments[5] === 'layout' || segments[5] === 'annotations') return route.fulfill({
+        json: {
+          width: 1786, height: 2526, color: '#000000', pdfGeometry: null,
+          glyphs: { unitsPerEm: 1000, characters: { '1': { path: 'M0 0 L200 0 L200 700 L0 700 Z', advance: 400 } } },
+          annotations: [{
+            noteId: noteIds[index], interId: 1, status: 'placed', text: '1', degree: '1', alteration: 0, octaveDots: 0,
+            fontSize: 18, width: 15, height: 20, baselineOffset: [0, 18], dots: [], bounds: [300, 400, 30, 20], labelBounds: [330, 400, 15, 20]
+          }, ...(index === 0 ? extraIds.map((id, i) => ({
+            noteId: id, interId: i+2, status: i === 0 ? 'placed' : 'needs-manual-placement', text: '1', degree: '1', alteration: 0, octaveDots: 0,
+            fontSize: 18, width: 15, height: 20, baselineOffset: [0, 18], dots: [], bounds: [600+i*200, 400, 30, 20], labelBounds: i === 0 ? [630, 400, 15, 20] : null,
+          })) : [])],
+        }
+      })
       return route.fulfill({ json: revisions[index][version - 1] })
     }
-    if (segments[4] === 'source') return route.fulfill({ contentType: 'application/pdf', body: pdf })
-    if (segments[3] === 'layout' || segments[4] === 'annotations.json') return route.fulfill({
-      json: {
-        width: 1786, height: 2526, color: '#000000', pdfGeometry: null,
-        glyphs: { unitsPerEm: 1000, characters: { '1': { path: 'M0 0 L200 0 L200 700 L0 700 Z', advance: 400 } } },
-        annotations: [{
-          noteId: noteIds[index], interId: 1, status: 'placed', text: '1', degree: '1', alteration: 0, octaveDots: 0,
-          fontSize: 18, width: 15, height: 20, baselineOffset: [0, 18], dots: [], bounds: [300, 400, 30, 20], labelBounds: [330, 400, 15, 20]
-        }, ...(index === 0 ? extraIds.map((id, i) => ({
-          noteId: id, interId: i+2, status: i === 0 ? 'placed' : 'needs-manual-placement', text: '1', degree: '1', alteration: 0, octaveDots: 0,
-          fontSize: 18, width: 15, height: 20, baselineOffset: [0, 18], dots: [], bounds: [600+i*200, 400, 30, 20], labelBounds: i === 0 ? [630, 400, 15, 20] : null,
-        })) : [])],
-      }
-    })
     return route.fulfill({ status: 404 })
   })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   // Test persistence separately from native leave dialogs, which interrupt CLI execution.
   await page.addInitScript(() => {
-    window.confirm = () => true
     window.addEventListener('beforeunload', event => event.stopImmediatePropagation(), { capture: true })
   })
-  await page.evaluate(() => { window.confirm = () => true })
   await page.evaluate(({ parent, key, numbering }) => {
     localStorage.clear()
     localStorage.setItem('pujian:scores:v1', JSON.stringify([null, { invalid: true }, { id: parent, token: 'c'.repeat(64), name: 'VueUse regression.pdf', date: '2026-10-22' }]))
@@ -90,7 +96,27 @@ async (page) => {
   await page.reload()
   await page.getByRole('button', { name: '01 已就绪' }).waitFor()
   await page.locator('[data-rendered=true]').waitFor()
+  assert(await page.locator('.sidebar-home[data-slot=base]').count() === 1, 'Workspace shortcut lost its Nuxt UI button')
+  assert(await page.locator('.library-open[data-slot=base]').count() === 1, 'Library row lost its Nuxt UI button')
+  assert(await page.locator('.help-link[data-slot=base]').count() === 1, 'Help shortcut lost its Nuxt UI button')
+  assert(await page.locator('.page-navigation-item[data-slot=base]').count() === 2, 'Page navigation lost its Nuxt UI buttons')
   assert(await page.getByRole('button', { name: '打开 VueUse regression.pdf' }).count() === 1, 'Valid stored record was not restored')
+  assert(await page.locator('.breadcrumb [data-slot=linkLabel]').count() === 2, 'Breadcrumb did not show workspace and score')
+  assert(await page.locator('.avatar [role=img]').count() === 1, 'Avatar fallback lost its accessible role')
+  assert(await page.locator('.note-attention').count() === 1, 'Pending annotation was not marked on its note')
+  assert(await page.locator('.note-target[tabindex="0"]').count() === 1, 'Score exposed more than one tab stop')
+  const unannotatedAction = page.getByRole('button', { name: '处理未标注（1）', exact: true })
+  assert(await unannotatedAction.count() === 1, 'Unannotated action missing')
+  await unannotatedAction.click()
+  assert(await page.locator(`.note-target[data-note-id="${extraIds[1]}"] .is-selected`).count() === 1, 'Unannotated action did not select the pending note')
+  await page.evaluate(() => {
+    const app = document.querySelector('#__nuxt').__vue_app__
+    app.config.globalProperties.$pinia._s.get('workspace').error = '连接测试失败'
+  })
+  await page.locator('.error-banner').waitFor()
+  assert(await page.getByRole('button', { name: '重试连接' }).count() === 1, 'Error alert lost its retry action')
+  await page.locator('.error-banner [data-slot=close]').click()
+  await page.locator('.error-banner').waitFor({ state: 'detached' })
   // Common shortcuts use the live UI against controlled server responses.
   await page.locator('.note-target').first().focus()
   await page.keyboard.press('Control+a')
@@ -103,32 +129,57 @@ async (page) => {
   assert(await page.locator('.head-hit.is-in-selection').count() === 0, 'Escape did not clear the selection')
   await page.keyboard.press('k')
   assert(await page.locator(`.note-target[data-note-id="${extraIds[0]}"] .is-selected`).count() === 1, 'K without a selection must pick the last note in staff order')
+  assert(await page.locator(`.note-target[data-note-id="${extraIds[0]}"][tabindex="0"]`).count() === 1, 'K did not move the tab stop')
   await page.keyboard.press('j')
   assert(await page.locator(`.note-target[data-note-id="${noteIds[0]}"] .is-selected`).count() === 1, 'J did not wrap to the first note')
+  assert(await page.locator(`.note-target[data-note-id="${noteIds[0]}"][tabindex="0"]`).count() === 1, 'J did not move the tab stop')
   const browserShortcut = await page.evaluate(() => {
     const event = new KeyboardEvent('keydown', { key: 'j', ctrlKey: true, bubbles: true, cancelable: true })
     document.dispatchEvent(event); return event.defaultPrevented
   })
   assert(!browserShortcut && await page.locator(`.note-target[data-note-id="${noteIds[0]}"] .is-selected`).count() === 1, 'Browser Ctrl+J was hijacked')
+  const zoomSelect = page.getByRole('combobox', { name: '缩放比例' })
+  const zoomText = async () => (await zoomSelect.locator('[data-slot=value]').textContent())?.trim()
   await page.keyboard.press('=')
-  assert(await page.getByRole('combobox', { name: '缩放比例' }).inputValue() === '125', 'Zoom-in shortcut failed')
+  assert(await zoomText() === '125%', 'Zoom-in shortcut failed')
   await page.keyboard.press('-')
-  assert(await page.getByRole('combobox', { name: '缩放比例' }).inputValue() === '100', 'Zoom-out shortcut failed')
+  assert(await zoomText() === '100%', 'Zoom-out shortcut failed')
   await page.keyboard.press('='); await page.keyboard.press('0')
-  assert(await page.getByRole('combobox', { name: '缩放比例' }).inputValue() === '100', 'Reset zoom shortcut failed')
+  assert(await zoomText() === '100%', 'Reset zoom shortcut failed')
   await page.keyboard.press('l')
   assert(await page.locator('.annotation-label').count() === 0, 'Label visibility shortcut failed')
   await page.keyboard.press('l')
+  await page.getByRole('tab', { name: '原谱', exact: true }).click()
+  assert(await page.locator('.annotation-label').count() === 0, 'Original tab did not hide labels')
+  await page.getByRole('tab', { name: '简谱标注', exact: true }).click()
+  assert(await page.locator('.annotation-label').count() === 2, 'Numbered tab did not restore labels')
+  assert(await page.getByRole('tab', { name: '原谱标注', exact: true }).getAttribute('aria-selected') === 'true', 'Score view tabs lost their active state')
   await page.keyboard.press('i')
   assert(!(await page.locator('.workspace').getAttribute('class')).includes('inspector-open'), 'Inspector shortcut failed')
   await page.keyboard.press('i')
   await page.keyboard.press('b')
   assert((await page.locator('.workspace').getAttribute('class')).includes('sidebar-collapsed'), 'Library shortcut failed')
+  const collapsedShell = await page.evaluate(() => {
+    const sidebar = document.querySelector('.library-sidebar')
+    const main = document.querySelector('.main-shell').getBoundingClientRect()
+    return { sidebar: getComputedStyle(sidebar).display, mainWidth: main.width, viewport: document.documentElement.clientWidth }
+  })
+  assert(collapsedShell.sidebar === 'none', 'Collapsed library was still rendered')
+  assert(Math.abs(collapsedShell.mainWidth - collapsedShell.viewport) < 1, 'Collapsed library left a layout gap')
   await page.keyboard.press('b')
+  assert(await page.locator('.library-sidebar').evaluate(element => getComputedStyle(element).display) === 'flex', 'Expanded library did not return')
+  await page.getByRole('button', { name: '1 个待放置', exact: true }).click()
+  assert(await page.locator(`.note-target[data-note-id="${extraIds[1]}"] .is-selected`).count() === 1, 'Pending chip did not select the pending note')
   await page.keyboard.press('n')
   assert(await page.locator(`.note-target[data-note-id="${extraIds[1]}"] .is-selected`).count() === 1, 'Pending-note shortcut failed')
+  assert(await page.locator('.note-attention').count() === 1, 'Pending annotation lost its note marker')
+  assert(await page.getByRole('button', { name: '放置到空白处' }).getAttribute('aria-keyshortcuts') === 'P', 'Placement button did not advertise P')
   await page.keyboard.press('p')
   await page.getByText('点击原谱的空白处放置标注', { exact: false }).waitFor()
+  await page.locator('.annotation-overlay').click({ position: { x: 450, y: 600 } })
+  assert(await page.locator('.note-attention').count() === 0, 'Placing an annotation did not clear its note marker')
+  await page.keyboard.press('Control+z')
+  assert(await page.locator('.note-attention').count() === 1, 'Undo did not restore the note marker')
   await page.keyboard.press('Escape')
   assert(await page.locator('.placement-hint').count() === 0, 'Escape did not cancel placement mode')
   await page.keyboard.press(']')
@@ -138,6 +189,7 @@ async (page) => {
   await page.keyboard.press('?')
   await page.getByRole('dialog').waitFor()
   assert(await page.getByRole('region', { name: '文件与查看快捷键' }).count() === 1, 'Shortcut help groups missing')
+  assert(await page.locator('.sample-credit').getAttribute('target') === '_blank', 'Sample credit lost its external target')
   await page.keyboard.press('Escape')
   await page.getByRole('dialog').waitFor({ state: 'hidden' })
   // Native chooser was separately observed via CLI; cancel its default action
@@ -182,6 +234,7 @@ async (page) => {
   await page.getByRole('dialog').waitFor({ state: 'hidden' })
   // Switching pages preserves local drafts, but never imports the prior page's history.
   await page.getByRole('button', { name: '02 已就绪' }).click()
+  await acceptPageSwitch()
   await page.locator(`[data-note-id="${noteIds[1]}"].note-target`).waitFor()
   assert(await page.getByRole('button', { name: '撤销', exact: true }).isDisabled(), 'History leaked across pages')
   await page.locator('.note-target').first().click()
@@ -190,6 +243,7 @@ async (page) => {
   assert(await label.getAttribute('transform') === 'translate(335 400)', 'History capacity is not 50')
   assert(await page.getByRole('button', { name: '撤销', exact: true }).isDisabled(), 'History exceeded its capacity')
   await page.getByRole('button', { name: '01 已就绪' }).click()
+  await acceptPageSwitch()
   await page.locator(`[data-note-id="${noteIds[0]}"].note-target`).waitFor()
   assert(await label.getAttribute('transform') === branch, 'Page draft was not restored')
   await page.reload()

@@ -4,7 +4,7 @@ async (page) => {
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   await page.setViewportSize({ width: 1440, height: 1050 })
-  await page.getByRole('button', { name: '原谱标注', exact: true }).click()
+  await page.getByRole('tab', { name: '原谱标注', exact: true }).click()
   await page.locator('[data-testid="score-paper"][data-rendered="true"]').waitFor()
   const overlay = page.locator('.annotation-overlay')
   const positions = () => page.locator('.annotation-label').evaluateAll(elements => Object.fromEntries(elements.map(element => [element.dataset.noteId, element.getAttribute('transform').match(/[-\d.]+/g).map(Number)])))

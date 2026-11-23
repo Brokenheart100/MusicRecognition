@@ -1,11 +1,9 @@
-using Aspire.Hosting.Docker;
 using Aspire.Hosting.Docker.Resources.ComposeNodes;
-using Aspire.Hosting.Docker.Resources.ServiceNodes;
 
 var builder = DistributedApplication.CreateBuilder(args);
 var publishing = builder.ExecutionContext.IsPublishMode;
 var dashboardKey = publishing ? builder.AddParameter("dashboard-api-key",
-    new Aspire.Hosting.ApplicationModel.GenerateParameterDefault { MinLength = 64, Lower = true, Upper = true, Numeric = true, Special = false }, secret: true) : null;
+    new GenerateParameterDefault { MinLength = 64, Lower = true, Upper = true, Numeric = true, Special = false }, secret: true) : null;
 var compose = builder.AddDockerComposeEnvironment("compose")
     .WithDashboard(dashboard =>
     {
@@ -20,7 +18,7 @@ var compose = builder.AddDockerComposeEnvironment("compose")
                 .WithEnvironment("Dashboard__Frontend__AuthMode", "BrowserToken").WithEnvironment("Dashboard__Frontend__BrowserToken", dashboardKey);
     });
 
-var postgres = builder.AddPostgres("recognition-postgres")
+var postgres = builder.AddPostgres("recognition-postgres", port: 5432)
     .WithDataVolume(publishing ? "musicrecognition-deployed-postgres" : "musicrecognition-postgres-data");
 var database = postgres.AddDatabase("recognitiondb");
 
@@ -96,10 +94,16 @@ static void Harden(Service service, string cpus, string memory, bool external)
     service.StopGracePeriod = "30s";
     service.Logging = new() { Driver = "json-file", Options = { ["max-size"] = "10m", ["max-file"] = "3" } };
     service.Deploy = new() { Resources = new() { Limits = new() { Cpus = cpus, Memory = memory } } };
-    service.Healthcheck = new() { Interval = "15s", Timeout = "5s", StartPeriod = "90s", Retries = 5,
+    service.Healthcheck = new()
+    {
+        Interval = "15s",
+        Timeout = "5s",
+        StartPeriod = "90s",
+        Retries = 5,
         Test = external
             ? ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-            : ["CMD", "/opt/recognition/.tools/poc-python/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health',timeout=4)"] };
+            : ["CMD", "/opt/recognition/.tools/poc-python/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health',timeout=4)"]
+    };
     service.Ports.Clear();
     if (external) service.Ports.Add("127.0.0.1:3080:3000");
 }

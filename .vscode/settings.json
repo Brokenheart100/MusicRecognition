@@ -1,4 +1,5 @@
 {
   "python.defaultInterpreterPath": "${workspaceFolder}/.tools/poc-python/Scripts/python.exe",
-  "python.analysis.extraPaths": ["scripts/runtime"]
+  "python.analysis.extraPaths": ["scripts/runtime"],
+  "css.customData": [".vscode/tailwind-css-data.json"]
 }

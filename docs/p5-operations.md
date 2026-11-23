@@ -34,7 +34,7 @@ Compose 从 `MusicRecognition.AppHost/AppHost.cs` 生成，部署说明见 [depl
 
 谱面卷由 API / Worker 共享，开发卷和部署卷独立。根文件系统只读，应用不以 root 运行，丢弃 capabilities、禁止提权并限制日志轮转；私有 `/tmp` 和缓存挂载支持 JNA / JNI 需要的可执行映射。任务按目录、不可变修订和能力凭据隔离，共用 Worker 容器，未提供每任务独立 OS 沙箱。
 
-工具使用固定 Audiveris 5.11.0、music21 10.5.1、MuseScore 4.7.5 与 OpenCV 4.13.0.92；官方 Linux 发布包摘要见 `deploy/toolchain.lock.json`。Linux 库安装在 `/opt/recognition/.tools`，不依赖 Windows 路径。MuseScore 使用隔离 Xvfb；Worker 启动检查会验证 PDF 栅格化、字体、Java、适配器、OpenCV 和 MuseScore 启动。运行期间不下载工具。
+工具使用固定 Audiveris 5.11.0 与 OpenCV 4.13.0.92；官方 Linux 发布包摘要见 `deploy/toolchain.lock.json`。Linux 库安装在 `/opt/recognition/.tools`，不依赖 Windows 路径。Worker 启动检查会验证 PDF 栅格化、字体、Java、适配器和 OpenCV。运行期间不下载工具。
 
 首次迁移暴露的 OpenCV 缺失、Qt 显示依赖、临时挂载遮挡安装路径和 JNA 映射限制均已修复，随后重新执行真实样本验收。服务端实际镜像 ID、UID、只读设置、端口和资源限制记录于 [运行快照](../output/p5-validation/runtime-report.json)。
 
@@ -57,25 +57,15 @@ Compose 从 `MusicRecognition.AppHost/AppHost.cs` 生成，部署说明见 [depl
 | 上传限制 | 超过 21 MiB 请求包提前返回 413，业务文件仍限制 20 MiB |
 | 写入预算 | 实际触发 429；被限流后任务读取仍返回 200；返回 Retry-After |
 
-Web 流式转发上传，Kestrel / multipart 均限制请求包，图片最多 2000 万像素，PDF 最多 30 页。MusicXML 解压限制包括最多 1000 个条目、单条目 32 MiB、总计 64 MiB，并增加压缩膨胀回归测试。失败/重复片段上传会清理尚未发布的原图，清理接口拒绝已含修订的目录。
+Web 流式转发上传，Kestrel / multipart 均限制请求包，图片最多 2000 万像素，PDF 最多 30 页。MusicXML 解压限制包括最多 1000 个条目、单条目 32 MiB、总计 64 MiB，并增加压缩膨胀回归测试。失败/重复上传会清理尚未发布的原图，清理接口拒绝已含修订的目录。
 
-写入预算为单 API 实例全局默认 20 次/分钟、并发 4，包含需要计算的 `/reflow` GET；普通任务查询和下载不占此预算。`Operations:WritesPerMinute`、`Operations:ConcurrentWrites`、`Recognition:WorkerCount` 和 `Recognition:MinimumFreeSpaceMiB` 可配置。识谱/导出单次超时 900 秒，磁盘低于默认 512 MiB 时 readiness 失败。磁盘健康状态须由运维监控处理，不代表数据会自动清理。
+写入预算为单 API 实例全局默认 20 次/分钟、并发 4，普通任务查询和下载不占此预算。`Operations:WritesPerMinute`、`Operations:ConcurrentWrites`、`Recognition:WorkerCount` 和 `Recognition:MinimumFreeSpaceMiB` 可配置。识谱/导出单次超时 900 秒，磁盘低于默认 512 MiB 时 readiness 失败。磁盘健康状态须由运维监控处理，不代表数据会自动清理。
 
 证据：[HTTP 与恢复结果](../output/p5-validation/live-report.json)、[标注 PDF](../output/p5-validation/Minuet-annotated.pdf)、[像素检查](../output/p5-validation/job/revisions/1/verification.json)、[谱面图](../output/p5-validation/job/revisions/1/annotated-render.png)。已查看渲染图，未建立全页人工音高真值。
 
 这些数据覆盖单 Worker 和少量本机样本；读取延迟不等于 OMR 吞吐，不推断高并发生产容量。
 
 本机 Edge 还通过部署 Web 的真实页面打开《小步舞曲》，完成 202 上传、生成 SDK 读取 Ready 修订和 PDF.js 画布渲染，未捕获 pageerror。保存 [桌面截图](../output/p5-validation/workbench-desktop.png) 与 [390 px 视口截图](../output/p5-validation/workbench-mobile.png)，390 px 视口的文档宽度也为 390 px；此检查不替代真实 iOS 设备或人员使用验收。
-
-## 图片拼谱在 Linux 的复验
-
-使用用户提供的两张 Orange 截图，经过公开 Web 入口调用真实后台。任务 `d9c8312a-50f1-49ff-8a47-cc8eb8911e9c`：21.16 秒，11 小节、193 个已识别音符，导出 2 页 PDF 与 MusicXML。
-
-music21 审核和 MuseScore 回导门禁通过。第 5、6 小节时值疑点、八度线漏识别仍存在，`octave-shift` 数量为 0；原始识谱准确率未因容器化而得到证明。
-
-该轮片段任务所在 Worker 容器生命周期的 cgroup 内存峰值为 **664 MiB**，包含 .NET、Python、Java 和 Xvfb，不是所有谱面或长时间运行的内存上界。
-
-证据：[片段结果](../output/p5-validation/fragment-report.json)、[PDF](../output/p5-validation/Orange-compose.pdf)、[MusicXML](../output/p5-validation/Orange-compose.musicxml)。
 
 ## 备份、还原与过期清理
 

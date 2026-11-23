@@ -1,10 +1,13 @@
-// PDF points per recognition pixel. Match the export's physical lower bound.
+const minimumPreferredPoints = 7
+const maximumPreferredPoints = 10
+
+export const reservationFontPoints = [4.5, 4, 3.5, 3] as const
+
+export const preferredAnnotationSize = (reference: number, unitsPerPoint: number) =>
+  Math.max(minimumPreferredPoints * unitsPerPoint, Math.min(maximumPreferredPoints * unitsPerPoint, reference * 1.55))
+
+// Match the original-PDF layout's physical sizing, rounded to recognition pixels.
 export const preferredAnnotationPixels = (interline: number, pointsPerPixel: number) =>
-  Math.max(Math.ceil(4 / pointsPerPixel), Math.min(Math.round(8 / pointsPerPixel), Math.round(interline * 1.2)))
+  Math.max(Math.ceil(minimumPreferredPoints / pointsPerPixel), Math.round(preferredAnnotationSize(interline, 1 / pointsPerPixel)))
 
-export const automaticFontScales = (preferred: number, minimum: number) =>
-  [...new Set([1, .9, .8, .7, .6, 0].map(scale => Math.max(minimum, preferred * scale)))]
-
-// Same count curve as the original-PDF layout. The physical 3 pt floor is
-// applied by each renderer, after converting to its own coordinate space.
-export const chordFontScale = (count: number) => 1 / (1 + .18 * (Math.max(1, count) - 1))
+export const chordFontScale = (count: number) => 1 / (1 + .08 * (Math.max(1, count) - 1))

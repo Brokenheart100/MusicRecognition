@@ -100,19 +100,20 @@ for name, source, has_review in [("minuet-pdf", pdf, False), ("bach-scan", scan,
         # A repeated run reuses jobs; elapsed time is not a fresh benchmark in that case.
         result["resumedEvidence"] = resumed
         if job["state"] == "Ready":
-            revision = request("GET", base + "/revisions?version=1", access["token"])
+            revision = request("GET", base + "/revisions/1", access["token"])
             deadline = time.monotonic() + 240
             while revision["state"] in ("Queued", "Processing"):
                 assert time.monotonic() < deadline, (label, "export deadline")
                 time.sleep(1)
-                revision = request("GET", base + "/revisions?version=1", access["token"])
+                revision = request("GET", base + "/revisions/1", access["token"])
             result["exportState"] = revision["state"]
             (folder / "revision.json").write_text(json.dumps(revision), encoding="utf-8")
             assert revision["state"] == "Ready", (label, revision)
-            original = request("GET", base + "/artifacts/source", access["token"])
+            original = request("GET", base + "/source", access["token"])
             assert hashlib.sha256(original).hexdigest() == sha(source)
-            for artifact in ["annotated.pdf", "annotations.json", "metrics.json"]:
-                content = request("GET", base + "/artifacts/" + artifact + "?version=1", access["token"])
+            artifact_paths = {"annotated.pdf": "annotated-pdf", "annotations.json": "annotations", "metrics.json": "metrics"}
+            for artifact, endpoint in artifact_paths.items():
+                content = request("GET", base + "/revisions/1/" + endpoint, access["token"])
                 (folder / artifact).write_bytes(content if isinstance(content, bytes) else json.dumps(content, indent=2).encode())
             metrics = json.loads((folder / "metrics.json").read_text())
             assert metrics["annotationColor"] == "#000000" and metrics["originalDrawingOperationsPreserved"]

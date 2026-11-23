@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createClient } from '../../shared/api/generated/client'
-import { getScore, getRevision, getScoreLayout, getDocumentExport, getScoreArtifact } from '../../shared/api/generated/sdk.gen'
+import { getScore, getRevision, getRevisionLayout, getDocumentExport, getAnnotatedPdf, getRevisionMetrics } from '../../shared/api/generated/sdk.gen'
 const [origin, accessFile, folder = '../output/p3-query-validation'] = process.argv.slice(2)
 assert.ok(origin && accessFile, 'Usage: tsx tests/e2e/check-live-sdk.ts <api-origin> <private-access-file> [evidence-folder]')
 const access = JSON.parse(await readFile(resolve(accessFile), 'utf8'))
@@ -17,8 +17,8 @@ await writeFile(resolve(folder, 'job.json'), JSON.stringify(job, null, 2))
 const rows = []
 for (const page of job.pages ?? []) {
   if (page.state !== 'Ready' || page.exportState !== 'Ready') { console.log(`Page ${page.number}: ${page.state}/${page.exportState}`); continue }
-  const revision = (await getRevision({ ...options(page.id), query: { version: page.currentRevision } })).data
-  const layout = (await getScoreLayout({ ...options(page.id), query: { version: page.currentRevision } })).data
+  const revision = (await getRevision({ ...options(page.id), path: { id: page.id, version: page.currentRevision } })).data
+  const layout = (await getRevisionLayout({ ...options(page.id), path: { id: page.id, version: page.currentRevision } })).data
   assert.equal(layout.annotations.length, revision.score.notes.length)
   assert.equal(layout.color, '#000000')
   rows.push({ page: page.number, revision: revision.version, notes: revision.score.notes.length, annotations: layout.annotations.length, color: layout.color })
@@ -28,9 +28,9 @@ console.log(JSON.stringify({ state: job.state, readyPagesValidated: rows.length,
 if (job.currentRevision > 0) {
   const exported = (await getDocumentExport({ ...options(job.id), path: { id: job.id, version: job.currentRevision } })).data
   if (exported.state === 'Ready') {
-    const blob = (await getScoreArtifact({ ...options(job.id), path: { id: job.id, name: 'annotated.pdf' }, query: { version: exported.version }, parseAs: 'blob' })).data as Blob
+    const blob = (await getAnnotatedPdf({ ...options(job.id), path: { id: job.id, version: exported.version }, parseAs: 'blob' })).data as Blob
     const bytes = Buffer.from(await blob.arrayBuffer())
-    const metricsBlob = (await getScoreArtifact({ ...options(job.id), path: { id: job.id, name: 'metrics.json' }, query: { version: exported.version }, parseAs: 'blob' })).data as Blob
+    const metricsBlob = (await getRevisionMetrics({ ...options(job.id), path: { id: job.id, version: exported.version }, parseAs: 'blob' })).data as Blob
     await writeFile(resolve(folder, 'metrics.json'), await metricsBlob.text())
     const destination = fileURLToPath(new URL('../../output/pdf/p3-query-six-page-annotated.pdf', import.meta.url))
     await writeFile(destination, bytes)
